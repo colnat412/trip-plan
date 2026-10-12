@@ -15,8 +15,11 @@ export class UserEntity {
   @Column()
   name: string;
 
-  @Column({ name: 'avatar_url', nullable: true })
-  avatarUrl: string;
+  @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
+  avatarUrl: string | null;
+
+  @Column({ name: 'avatar_upload_id', type: 'uuid', nullable: true })
+  avatarUploadId: string | null;
 
   @Column()
   status: UserStatusEnum;
