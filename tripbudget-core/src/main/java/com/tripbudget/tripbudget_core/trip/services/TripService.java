@@ -41,17 +41,20 @@ public class TripService {
     private final TripMemberRepository tripMemberRepository;
     private final HashidsService hashidsService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TripCoverService tripCoverService;
 
     public TripService(
             TripRepository tripRepository,
             TripMemberRepository tripMemberRepository,
             HashidsService hashidsService,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            TripCoverService tripCoverService
     ) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.hashidsService = hashidsService;
         this.eventPublisher = eventPublisher;
+        this.tripCoverService = tripCoverService;
     }
 
     @Transactional
@@ -164,6 +167,8 @@ public class TripService {
                     "Cannot set trip status to DELETED via update. Use delete trip endpoint instead."
             );
         }
+
+        tripCoverService.updateCover(currentUserId, trip, dto.getCoverUploadId(), dto.isRemoveCover());
 
         trip.update(
                 dto.getName(),

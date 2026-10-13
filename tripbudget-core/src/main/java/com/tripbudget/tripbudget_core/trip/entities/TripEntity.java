@@ -56,6 +56,17 @@ public class TripEntity extends BaseEntity {
     @Column(name = "share_token", unique = true, length = 64)
     private String shareToken;
 
+    @Column(name = "cover_upload_id")
+    private java.util.UUID coverUploadId;
+
+    @Column(name = "cover_url", columnDefinition = "TEXT")
+    private String coverUrl;
+
+    public void updateCover(java.util.UUID uploadId, String url) {
+        this.coverUploadId = uploadId;
+        this.coverUrl = url;
+    }
+
     @Version
     @Column(nullable = false)
     private Long version;

@@ -38,5 +38,9 @@ public class UpdateTripRequest {
     private String baseCurrency;
 
     private TripStatus status;
+
+    private java.util.UUID coverUploadId;
+
+    private boolean removeCover;
 }
 
