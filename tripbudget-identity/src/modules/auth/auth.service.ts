@@ -20,6 +20,7 @@ import { RedisService } from 'src/common/redis/redis.service';
 import { JwtService } from '@nestjs/jwt';
 
 import { HashidsService } from '../../common/hashids/hashids.service';
+import { policyProfile } from '../users/policies';
 import { MailerService } from 'src/common/mailer/mailer.service';
 import { OAuth2Client } from 'google-auth-library';
 
@@ -99,6 +100,7 @@ export class AuthService {
           email: user.email,
           name: user.name,
           avatarUrl: user.avatarUrl,
+          ...policyProfile(user),
         },
       };
     } catch (error) {
@@ -166,6 +168,7 @@ export class AuthService {
           email: user.email,
           name: user.name,
           avatarUrl: user.avatarUrl,
+          ...policyProfile(user),
         },
       };
     } catch (error) {
@@ -249,6 +252,7 @@ export class AuthService {
           email: user.email,
           name: user.name,
           avatarUrl: user.avatarUrl,
+          ...policyProfile(user),
         },
       };
     } catch (error) {
@@ -276,6 +280,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      ...policyProfile(user),
     };
   }
 

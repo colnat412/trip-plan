@@ -9,6 +9,7 @@ import { HashidsService } from 'src/common/hashids/hashids.service';
 import { UploadStatusEnum, UploadTypeEnum } from 'src/config/enums/upload.enum';
 import { UploadEntity } from '../uploads/entities/upload.entity';
 import { UserEntity } from './entities/user.entity';
+import { policyProfile } from './policies';
 
 @Injectable()
 export class UserAvatarService {
@@ -87,6 +88,7 @@ export class UserAvatarService {
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      ...policyProfile(user),
     };
   }
 }

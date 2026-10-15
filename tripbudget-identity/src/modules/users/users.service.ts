@@ -1,6 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { HashidsService } from 'src/common/hashids/hashids.service';
+import { AcceptPoliciesDto } from './dtos/accept-policies.dto';
+import { POLICY_VERSION } from './policies';
 import { UserEntity } from './entities/user.entity';
 import { RegisterDto } from '../auth/dtos/auto.dto';
 
@@ -9,7 +17,50 @@ export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    private readonly hashids: HashidsService,
   ) {}
+
+  private async authenticatedUser(subject: string | number) {
+    const id = this.hashids.decode(subject);
+    if (!id || !Number.isSafeInteger(id))
+      throw new UnauthorizedException('Invalid user');
+    const user = await this.userRepository.findOneBy({ id });
+    if (!user) throw new UnauthorizedException('User not found');
+    return user;
+  }
+
+  async assertPoliciesAccepted(subject: string | number) {
+    const user = await this.authenticatedUser(subject);
+    if (!user.policiesAcceptedAt || !user.policiesVersion) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'POLICY_ACCEPTANCE_REQUIRED',
+        message: 'Accept the policies before using Trip Plan',
+      });
+    }
+  }
+
+  async acceptPolicies(subject: string | number, dto: AcceptPoliciesDto) {
+    if (
+      dto.termsAccepted !== true ||
+      dto.contentAccepted !== true ||
+      dto.privacyAccepted !== true ||
+      dto.version !== POLICY_VERSION ||
+      !['vi', 'en'].includes(dto.locale)
+    ) {
+      throw new BadRequestException('All current policies must be accepted');
+    }
+    const user = await this.authenticatedUser(subject);
+    await this.userRepository.update(
+      { id: user.id, policiesAcceptedAt: IsNull() },
+      {
+        policiesAcceptedAt: new Date(),
+        policiesVersion: POLICY_VERSION,
+        policiesLocale: dto.locale,
+      },
+    );
+    return (await this.userRepository.findOneBy({ id: user.id }))!;
+  }
 
   async findByCondition(
     condition: Record<string, any>,

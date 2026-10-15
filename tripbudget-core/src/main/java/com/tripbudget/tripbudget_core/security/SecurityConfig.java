@@ -3,6 +3,7 @@ package com.tripbudget.tripbudget_core.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -27,6 +28,7 @@ public class SecurityConfig {
     private final RedisSessionValidationFilter redisSessionValidationFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
+    private final PolicyAcceptanceFilter policyAcceptanceFilter;
 
     @Value("${security.jwt.secret}")
     private String jwtSecret;
@@ -34,11 +36,13 @@ public class SecurityConfig {
      public SecurityConfig(
             RedisSessionValidationFilter redisSessionValidationFilter,
             CustomAuthenticationEntryPoint authenticationEntryPoint,
-            CustomAccessDeniedHandler accessDeniedHandler
+            CustomAccessDeniedHandler accessDeniedHandler,
+            PolicyAcceptanceFilter policyAcceptanceFilter
     ) {
         this.redisSessionValidationFilter = redisSessionValidationFilter;
         this.customAuthenticationEntryPoint = authenticationEntryPoint;
         this.customAccessDeniedHandler = accessDeniedHandler;
+        this.policyAcceptanceFilter = policyAcceptanceFilter;
     }
 
     @Bean
@@ -72,8 +76,16 @@ public class SecurityConfig {
                         redisSessionValidationFilter,
                         BearerTokenAuthenticationFilter.class
                 )
+                .addFilterAfter(policyAcceptanceFilter, RedisSessionValidationFilter.class)
 
                 .build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<PolicyAcceptanceFilter> policyFilterRegistration() {
+        var registration = new FilterRegistrationBean<>(policyAcceptanceFilter);
+        registration.setEnabled(false); // Run only in the security chain, after JWT/session validation.
+        return registration;
     }
 
     // Verify signature from secret key, expire

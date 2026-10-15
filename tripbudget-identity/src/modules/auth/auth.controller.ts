@@ -17,8 +17,10 @@ import {
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { Public } from './decorators/public.decorator';
+import { AllowPendingPolicies } from './decorators/allow-pending-policies.decorator';
 
 @Controller('auth')
+@AllowPendingPolicies()
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
