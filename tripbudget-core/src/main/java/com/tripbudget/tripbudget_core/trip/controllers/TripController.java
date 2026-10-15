@@ -128,10 +128,9 @@ public class TripController {
     }
 
     @PutMapping("/delete/{id}")
-    public ResponseEntity<ApiResponse<TripResponse>> deleteTrip(
+    public ResponseEntity<ApiResponse<Void>> deleteTrip(
             @PathVariable("id") String tripIdHash,
-            @CurrentUser CurrentUserDto user,
-            @Valid @RequestBody() UpdateTripRequest body
+            @CurrentUser CurrentUserDto user
     ){
         Long currentUserId = user.id();
         Long tripId = hashidsService.decode(tripIdHash);
