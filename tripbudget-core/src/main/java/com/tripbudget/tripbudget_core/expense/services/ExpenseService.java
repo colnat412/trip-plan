@@ -51,11 +51,12 @@ public class ExpenseService {
     private final TripMemberRepository tripMemberRepository;
     private final UserRepository userRepository;
     private final HashidsService hashidsService;
+    private final ExpenseReceiptService receiptService;
 
     @Transactional
     public ExpenseResponse createExpense(Long currentUserId, Long tripId, CreateExpenseRequest req) {
         TripEntity trip = getValidTrip(tripId);
-        validateMembership(tripId, currentUserId);
+        validateWriteMembership(tripId, currentUserId);
 
         Long payerId = (req.payerId() != null && !req.payerId().isBlank())
                 ? hashidsService.decode(req.payerId())
@@ -80,12 +81,13 @@ public class ExpenseService {
                 expenseDate,
                 splitType,
                 req.note(),
-                req.receiptUrl(),
+                null,
                 activityId
         );
 
         applyExpenseSplits(expense, req.amount(), splitType, req.splits(), payerId, tripId, currentUserId);
 
+        receiptService.updateReceipt(currentUserId, expense, req.receiptUploadId(), false, req.receiptUrl());
         ExpenseEntity savedExpense = expenseRepository.save(expense);
         return mapToResponse(savedExpense);
     }
@@ -165,7 +167,7 @@ public class ExpenseService {
     @Transactional
     public ExpenseResponse updateExpense(Long currentUserId, Long tripId, Long expenseId, UpdateExpenseRequest req) {
         TripEntity trip = getValidTrip(tripId);
-        validateMembership(tripId, currentUserId);
+        validateWriteMembership(tripId, currentUserId);
 
         ExpenseEntity expense = expenseRepository.findByIdAndTripIdAndIsDelFalse(expenseId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
@@ -207,7 +209,7 @@ public class ExpenseService {
                 req.expenseDate() != null ? req.expenseDate() : expense.getExpenseDate(),
                 newSplitType,
                 req.note(),
-                req.receiptUrl(),
+                expense.getReceiptUrl(),
                 activityId
         );
 
@@ -219,6 +221,7 @@ public class ExpenseService {
             recalculateExistingSplits(expense, newAmount, payerId);
         }
 
+        receiptService.updateReceipt(currentUserId, expense, req.receiptUploadId(), req.removeReceipt(), req.receiptUrl());
         ExpenseEntity savedExpense = expenseRepository.save(expense);
         return mapToResponse(savedExpense);
     }
@@ -226,11 +229,12 @@ public class ExpenseService {
     @Transactional
     public void deleteExpense(Long currentUserId, Long tripId, Long expenseId) {
         getValidTrip(tripId);
-        validateMembership(tripId, currentUserId);
+        validateWriteMembership(tripId, currentUserId);
 
         ExpenseEntity expense = expenseRepository.findByIdAndTripIdAndIsDelFalse(expenseId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
 
+        receiptService.updateReceipt(currentUserId, expense, null, true, null);
         expense.deleteExpense();
         expenseRepository.save(expense);
 
@@ -505,6 +509,15 @@ public class ExpenseService {
         return trip;
     }
 
+    private void validateWriteMembership(Long tripId, Long currentUserId) {
+        var member = tripMemberRepository.findByTrip_IdAndUserIdAndIsDelFalse(tripId, currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission in this trip"));
+        if (member.getStatus() != TripMemberStatus.ACTIVE
+                || member.getRole() == com.tripbudget.tripbudget_core.trip.enums.TripMemberRole.VIEWER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to edit expenses");
+        }
+    }
+
     private void validateMembership(Long tripId, Long currentUserId) {
         boolean isMember = tripMemberRepository.existsByTrip_IdAndUserIdAndStatus(
                 tripId,
@@ -583,6 +596,7 @@ public class ExpenseService {
                 entity.getStatus(),
                 entity.getNote(),
                 entity.getReceiptUrl(),
+                entity.getReceiptUploadId(),
                 entity.getActivityId() != null ? hashidsService.encode(entity.getActivityId()) : null,
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),

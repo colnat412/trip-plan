@@ -67,6 +67,14 @@ public class ExpenseEntity extends BaseEntity {
     @Column(name = "receipt_url", length = 500)
     private String receiptUrl;
 
+    @Column(name = "receipt_upload_id", unique = true)
+    private java.util.UUID receiptUploadId;
+
+    public void updateReceipt(java.util.UUID uploadId, String url) {
+        this.receiptUploadId = uploadId;
+        this.receiptUrl = url;
+    }
+
     @Version
     @Column(nullable = false)
     private Long version;

@@ -38,4 +38,13 @@ public class UploadRepository {
                 """, UploadStatus.DELETE_PENDING.getDatabaseValue(), uploadId, currentUserId,
                 purpose.name(), UploadStatus.ATTACHED.getDatabaseValue());
     }
+
+    public void releaseAttached(UUID uploadId, UploadPurpose purpose) {
+        jdbc.update("""
+                UPDATE public.uploads SET status = CAST(? AS public.upload_status_enum)
+                WHERE id = ? AND type = CAST(? AS public.upload_type_enum)
+                  AND status = CAST(? AS public.upload_status_enum)
+                """, UploadStatus.DELETE_PENDING.getDatabaseValue(), uploadId, purpose.name(),
+                UploadStatus.ATTACHED.getDatabaseValue());
+    }
 }

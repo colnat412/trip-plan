@@ -25,6 +25,7 @@ public record ExpenseResponse(
         ExpenseStatus status,
         String note,
         String receiptUrl,
+        java.util.UUID receiptUploadId,
         String activityId,
         Instant createdAt,
         Instant updatedAt,

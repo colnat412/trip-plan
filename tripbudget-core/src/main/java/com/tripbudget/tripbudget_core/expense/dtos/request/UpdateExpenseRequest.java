@@ -30,12 +30,17 @@ public record UpdateExpenseRequest(
 
         String note,
 
+        @jakarta.validation.constraints.Size(max = 500)
         String receiptUrl,
 
         String payerId,
 
         String activityId,
 
-        List<SplitItemRequest> splits
+        List<SplitItemRequest> splits,
+
+        java.util.UUID receiptUploadId,
+
+        boolean removeReceipt
 ) {}
 

@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 const UPLOAD_PREFIX: Record<UploadTypeEnum, string> = {
   [UploadTypeEnum.PROFILE_AVATAR]: 'tripbudget/profile-avatars',
   [UploadTypeEnum.TRIP_COVER]: 'tripbudget/trip-covers',
+  [UploadTypeEnum.EXPENSE_RECEIPT]: 'tripbudget/expense-receipts',
 };
 
 @Injectable()

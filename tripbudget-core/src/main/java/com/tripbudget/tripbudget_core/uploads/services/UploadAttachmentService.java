@@ -28,4 +28,8 @@ public class UploadAttachmentService {
     public void scheduleDeletion(Long currentUserId, UUID uploadId, UploadPurpose purpose) {
         uploads.markDeletePending(currentUserId, uploadId, purpose);
     }
+
+    public void releaseAttached(UUID uploadId, UploadPurpose purpose) {
+        uploads.releaseAttached(uploadId, purpose);
+    }
 }
