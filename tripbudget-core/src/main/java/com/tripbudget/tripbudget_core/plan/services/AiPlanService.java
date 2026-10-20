@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.plan.services;
 
+import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
+
 import com.tripbudget.tripbudget_core.plan.dtos.request.AiGeneratePlanRequest;
 import com.tripbudget.tripbudget_core.plan.entities.PlanDayEntity;
 import com.tripbudget.tripbudget_core.plan.entities.PlanActivityEntity;
@@ -34,6 +36,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AiPlanService {
 
+    private final TripPermissionService permissions;
+
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
     private final PlanDayRepository planDayRepository;
@@ -63,6 +67,8 @@ public class AiPlanService {
         if (member.getStatus() != TripMemberStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have active access to this trip");
         }
+
+        permissions.requireManager(tripId, currentUserId);
 
         if (request.getDestination() == null || request.getDestination().isBlank()) {
             request.setDestination(trip.getDestination());
@@ -126,6 +132,7 @@ public class AiPlanService {
                     BigDecimal cost = actNode.has("estimatedCost") ? BigDecimal.valueOf(actNode.get("estimatedCost").asDouble()) : BigDecimal.ZERO;
 
                     PlanActivityEntity act = PlanActivityEntity.create(
+                currentUserId,
                             planDay, tripId, title, startTime, endTime, location, category, cost, orderIndex++, note
                     );
                     planActivityRepository.save(act);

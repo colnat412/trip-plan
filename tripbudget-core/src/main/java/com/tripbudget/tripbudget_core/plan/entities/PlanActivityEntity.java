@@ -28,6 +28,9 @@ public class PlanActivityEntity extends BaseEntity {
     @JoinColumn(name = "day_id", nullable = false)
     private PlanDayEntity day;
 
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
     @Column(name = "trip_id", nullable = false)
     private Long tripId;
 
@@ -64,6 +67,7 @@ public class PlanActivityEntity extends BaseEntity {
     private Long expenseId;
 
     public static PlanActivityEntity create(
+            Long createdBy,
             PlanDayEntity day,
             Long tripId,
             String title,
@@ -76,6 +80,7 @@ public class PlanActivityEntity extends BaseEntity {
             String note
     ) {
         PlanActivityEntity act = new PlanActivityEntity();
+        act.createdBy = java.util.Objects.requireNonNull(createdBy, "createdBy is required");
         act.day = day;
         act.tripId = tripId;
         act.title = title.trim();

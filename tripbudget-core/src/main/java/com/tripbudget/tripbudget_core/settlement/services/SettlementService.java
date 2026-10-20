@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.settlement.services;
 
+import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
+
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseSplitEntity;
@@ -15,7 +17,6 @@ import com.tripbudget.tripbudget_core.settlement.enums.PaymentMethod;
 import com.tripbudget.tripbudget_core.settlement.repositories.SettlementRepository;
 import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
 import com.tripbudget.tripbudget_core.trip.entities.TripMemberEntity;
-import com.tripbudget.tripbudget_core.trip.enums.TripMemberRole;
 import com.tripbudget.tripbudget_core.trip.enums.TripMemberStatus;
 import com.tripbudget.tripbudget_core.trip.enums.TripStatus;
 import com.tripbudget.tripbudget_core.trip.repositories.TripMemberRepository;
@@ -36,6 +37,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SettlementService {
+
+    private final TripPermissionService permissions;
 
     private final SettlementRepository settlementRepository;
     private final TripRepository tripRepository;
@@ -188,6 +191,11 @@ public class SettlementService {
                 : currentUserId;
         Long payeeId = hashidsService.decode(req.payeeId());
 
+        var caller = permissions.requireActiveMember(tripId, currentUserId);
+        if (!caller.getRole().canManageTrip() && !currentUserId.equals(payerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Members can only record their own payments");
+        }
+
         if (payerId.equals(payeeId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payer and Payee cannot be the same member");
         }
@@ -205,6 +213,7 @@ public class SettlementService {
         PaymentMethod method = req.paymentMethod() != null ? req.paymentMethod() : PaymentMethod.CASH;
 
         SettlementEntity settlement = SettlementEntity.create(
+                currentUserId,
                 tripId,
                 payerId,
                 payeeId,
@@ -229,13 +238,10 @@ public class SettlementService {
         SettlementEntity settlement = settlementRepository.findByIdAndTripIdAndIsDelFalse(settlementId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Settlement transaction not found"));
 
-        TripMemberEntity member = tripMemberRepository.findByTrip_IdAndUserIdAndIsDelFalse(tripId, currentUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied"));
-
-        boolean isPrivileged = member.getRole() == TripMemberRole.OWNER || member.getRole() == TripMemberRole.VICE || member.getRole() == TripMemberRole.EDITOR;
-        boolean isParty = currentUserId.equals(settlement.getPayerId()) || currentUserId.equals(settlement.getPayeeId());
-
-        if (!isPrivileged && !isParty) {
+        var member = permissions.requireActiveMember(tripId, currentUserId);
+        boolean ownPayment = currentUserId.equals(settlement.getCreatedBy())
+                && currentUserId.equals(settlement.getPayerId());
+        if (!member.getRole().canManageTrip() && !ownPayment) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to delete this settlement");
         }
 
@@ -348,6 +354,7 @@ public class SettlementService {
 
         return new SettlementResponse(
                 hashidsService.encode(s.getId()),
+                s.getCreatedBy() != null ? hashidsService.encode(s.getCreatedBy()) : null,
                 hashidsService.encode(s.getTripId()),
                 hashidsService.encode(s.getPayerId()),
                 payer != null ? payer.getName() : null,

@@ -2,6 +2,7 @@ package com.tripbudget.tripbudget_core.common.exceptions;
 
 import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -34,6 +35,12 @@ public class GlobalExceptionHandler {
                                 errors
                         )
                 );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(HttpMessageNotReadableException exception) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(
+                HttpStatus.BAD_REQUEST, "Invalid request body or unsupported enum value"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

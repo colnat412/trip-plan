@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.plan.services;
 
+import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
+
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
 import com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus;
@@ -17,8 +19,6 @@ import com.tripbudget.tripbudget_core.plan.repositories.PlanActivityRepository;
 import com.tripbudget.tripbudget_core.plan.repositories.PlanChecklistRepository;
 import com.tripbudget.tripbudget_core.plan.repositories.PlanDayRepository;
 import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
-import com.tripbudget.tripbudget_core.trip.entities.TripMemberEntity;
-import com.tripbudget.tripbudget_core.trip.enums.TripMemberRole;
 import com.tripbudget.tripbudget_core.trip.enums.TripMemberStatus;
 import com.tripbudget.tripbudget_core.trip.dtos.response.PageResponse;
 import com.tripbudget.tripbudget_core.trip.events.PublicTripChangedEvent;
@@ -46,6 +46,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PlanService {
+
+    private final TripPermissionService permissions;
 
     private final PlanDayRepository planDayRepository;
     private final PlanActivityRepository planActivityRepository;
@@ -78,16 +80,7 @@ public class PlanService {
     }
 
     private void assertCanEditPlan(Long tripId, Long currentUserId) {
-        TripMemberEntity member = tripMemberRepository.findByTrip_IdAndUserIdAndIsDelFalse(tripId, currentUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this trip"));
-
-        if (member.getStatus() != TripMemberStatus.ACTIVE) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have active access to this trip");
-        }
-
-        if (member.getRole() == TripMemberRole.VIEWER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Viewers do not have permission to modify the plan");
-        }
+        permissions.requireActiveMember(tripId, currentUserId);
     }
 
     @Transactional
@@ -419,6 +412,7 @@ public class PlanService {
     @Transactional
     public void deletePlanDay(Long currentUserId, Long tripId, Long dayId) {
         getActiveMemberTrip(tripId, currentUserId);
+        permissions.requireManager(tripId, currentUserId);
 
         PlanDayEntity day = planDayRepository.findByIdAndTripIdAndIsDelFalse(dayId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan day not found"));
@@ -436,6 +430,7 @@ public class PlanService {
     @Transactional
     public void resetDayActivities(Long currentUserId, Long tripId, Long dayId) {
         getActiveMemberTrip(tripId, currentUserId);
+        permissions.requireManager(tripId, currentUserId);
         assertCanEditPlan(tripId, currentUserId);
 
         planDayRepository.findByIdAndTripIdAndIsDelFalse(dayId, tripId)
@@ -465,6 +460,7 @@ public class PlanService {
         }
 
         PlanActivityEntity activity = PlanActivityEntity.create(
+                currentUserId,
                 day,
                 tripId,
                 request.title(),
@@ -618,6 +614,7 @@ public class PlanService {
         PlanActivityEntity activity = planActivityRepository.findByIdAndTripIdAndIsDelFalse(activityId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found"));
 
+        permissions.requireManagerOrCreator(tripId, currentUserId, activity.getCreatedBy());
         activity.markDeleted();
 
         planActivityLogRepository.save(PlanActivityLogEntity.create(

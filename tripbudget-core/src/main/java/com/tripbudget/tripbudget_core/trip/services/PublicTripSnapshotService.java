@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 @Service
 public class PublicTripSnapshotService {
 
-    private static final String SNAPSHOT_KEY_PREFIX = "public-trip:snapshot:";
+    private static final String SNAPSHOT_KEY_PREFIX = "public-trip:snapshot:v2:";
     private static final Duration SNAPSHOT_TTL = Duration.ofHours(1);
     private static final Duration UNAVAILABLE_TTL = Duration.ofMinutes(1);
     private static final String NOT_FOUND_MARKER = "NOT_FOUND";

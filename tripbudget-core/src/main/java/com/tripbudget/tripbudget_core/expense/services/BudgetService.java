@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.expense.services;
 
+import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
+
 import com.tripbudget.tripbudget_core.expense.dtos.request.SetBudgetRequest;
 import com.tripbudget.tripbudget_core.expense.dtos.response.CategoryBreakdownResponse;
 import com.tripbudget.tripbudget_core.expense.dtos.response.TripBudgetSummaryResponse;
@@ -28,6 +30,8 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class BudgetService {
+
+    private final TripPermissionService permissions;
 
     private final BudgetRepository budgetRepository;
     private final ExpenseRepository expenseRepository;
@@ -122,7 +126,7 @@ public class BudgetService {
     @Transactional
     public TripBudgetSummaryResponse setBudget(Long currentUserId, Long tripId, SetBudgetRequest req) {
         TripEntity trip = getValidTrip(tripId);
-        validateMembership(tripId, currentUserId);
+        permissions.requireManager(tripId, currentUserId);
 
         BudgetEntity budget = budgetRepository.findByTripIdAndIsDelFalse(tripId)
                 .orElseGet(() -> BudgetEntity.create(tripId, req.totalBudget(), req.currency()));

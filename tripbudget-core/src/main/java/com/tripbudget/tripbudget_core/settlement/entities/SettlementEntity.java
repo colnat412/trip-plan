@@ -25,6 +25,9 @@ import java.util.Locale;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementEntity extends BaseEntity {
 
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
     @Column(name = "trip_id", nullable = false)
     private Long tripId;
 
@@ -54,6 +57,7 @@ public class SettlementEntity extends BaseEntity {
     private String receiptUrl;
 
     public static SettlementEntity create(
+            Long createdBy,
             Long tripId,
             Long payerId,
             Long payeeId,
@@ -65,6 +69,7 @@ public class SettlementEntity extends BaseEntity {
             String receiptUrl
     ) {
         SettlementEntity s = new SettlementEntity();
+        s.createdBy = java.util.Objects.requireNonNull(createdBy, "createdBy is required");
         s.tripId = tripId;
         s.payerId = payerId;
         s.payeeId = payeeId;

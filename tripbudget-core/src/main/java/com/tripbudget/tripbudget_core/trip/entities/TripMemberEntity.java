@@ -92,7 +92,7 @@ public class TripMemberEntity extends BaseEntity {
         if (newRole == null) {
             throw new IllegalArgumentException("Role cannot be null");
         }
-        if (newRole == TripMemberRole.OWNER) {
+        if (this.role == TripMemberRole.OWNER || newRole == TripMemberRole.OWNER) {
             throw new IllegalArgumentException("Cannot change member role to OWNER directly");
         }
         this.role = newRole;

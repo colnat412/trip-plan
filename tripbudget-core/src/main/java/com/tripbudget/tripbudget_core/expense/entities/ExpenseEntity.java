@@ -28,6 +28,9 @@ import java.util.Locale;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ExpenseEntity extends BaseEntity {
 
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
+
     @Column(name = "trip_id", nullable = false)
     private Long tripId;
 
@@ -83,6 +86,7 @@ public class ExpenseEntity extends BaseEntity {
     private List<ExpenseSplitEntity> splits = new ArrayList<>();
 
     public static ExpenseEntity create(
+            Long createdBy,
             Long tripId,
             Long payerId,
             String title,
@@ -96,6 +100,7 @@ public class ExpenseEntity extends BaseEntity {
             Long activityId
     ) {
         ExpenseEntity expense = new ExpenseEntity();
+        expense.createdBy = java.util.Objects.requireNonNull(createdBy, "createdBy is required");
         expense.tripId = tripId;
         expense.payerId = payerId;
         expense.title = title != null ? title.trim() : "";
@@ -112,6 +117,7 @@ public class ExpenseEntity extends BaseEntity {
     }
 
     public static ExpenseEntity create(
+            Long createdBy,
             Long tripId,
             Long payerId,
             String title,
@@ -123,7 +129,7 @@ public class ExpenseEntity extends BaseEntity {
             String note,
             String receiptUrl
     ) {
-        return create(tripId, payerId, title, category, amount, currency, expenseDate, splitType, note, receiptUrl, null);
+        return create(createdBy, tripId, payerId, title, category, amount, currency, expenseDate, splitType, note, receiptUrl, null);
     }
 
     public void update(

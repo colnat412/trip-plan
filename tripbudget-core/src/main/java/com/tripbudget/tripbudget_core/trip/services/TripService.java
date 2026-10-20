@@ -257,11 +257,14 @@ public class TripService {
         TripMemberEntity caller = tripMemberRepository.findByTrip_IdAndUserIdAndIsDelFalse(tripId, currentUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission in this trip"));
 
-        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE && caller.getRole() != TripMemberRole.EDITOR) {
+        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only trip owner and vice can update share settings");
         }
 
-        TripMemberRole role = dto.publicRole() != null ? dto.publicRole() : TripMemberRole.VIEWER;
+        if (dto.publicRole() != null && dto.publicRole() != TripMemberRole.MEMBER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Public links can only assign MEMBER role");
+        }
+        TripMemberRole role = TripMemberRole.MEMBER;
         trip.updateShareSettings(dto.visibility(), role);
         eventPublisher.publishEvent(PublicTripChangedEvent.of(tripId));
 
@@ -280,7 +283,7 @@ public class TripService {
         TripMemberEntity caller = tripMemberRepository.findByTrip_IdAndUserIdAndIsDelFalse(tripId, currentUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission in this trip"));
 
-        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE && caller.getRole() != TripMemberRole.EDITOR) {
+        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only trip owner and vice can regenerate share link");
         }
 
@@ -323,7 +326,7 @@ public class TripService {
         }
 
         java.util.Optional<TripMemberEntity> existingMemberOpt = tripMemberRepository.findByTrip_IdAndUserId(trip.getId(), currentUserId);
-        TripMemberRole assignRole = trip.getPublicRole() != null ? trip.getPublicRole() : TripMemberRole.VIEWER;
+        TripMemberRole assignRole = TripMemberRole.MEMBER;
 
         if (existingMemberOpt.isEmpty()) {
             // When joining via the link, set status INVITED so the trip owner can approve it

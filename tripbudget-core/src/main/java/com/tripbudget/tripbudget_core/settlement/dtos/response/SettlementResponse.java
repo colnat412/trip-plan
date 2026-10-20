@@ -8,6 +8,7 @@ import java.time.LocalDate;
 
 public record SettlementResponse(
         String id,
+        String createdBy,
         String tripId,
         String payerId,
         String payerName,

@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.expense.services;
 
+import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
+
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.expense.dtos.request.CreateExpenseRequest;
 import com.tripbudget.tripbudget_core.expense.dtos.request.ExpenseFilterRequest;
@@ -45,6 +47,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ExpenseService {
 
+    private final TripPermissionService permissions;
+
     private final ExpenseRepository expenseRepository;
     private final PlanActivityRepository planActivityRepository;
     private final TripRepository tripRepository;
@@ -72,6 +76,7 @@ public class ExpenseService {
                 : null;
 
         ExpenseEntity expense = ExpenseEntity.create(
+                currentUserId,
                 tripId,
                 payerId,
                 req.title(),
@@ -171,6 +176,7 @@ public class ExpenseService {
 
         ExpenseEntity expense = expenseRepository.findByIdAndTripIdAndIsDelFalse(expenseId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+        permissions.requireManagerOrCreator(tripId, currentUserId, expense.getCreatedBy());
 
         if (expense.getStatus() == ExpenseStatus.DELETED) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense has been deleted");
@@ -233,6 +239,7 @@ public class ExpenseService {
 
         ExpenseEntity expense = expenseRepository.findByIdAndTripIdAndIsDelFalse(expenseId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+        permissions.requireManagerOrCreator(tripId, currentUserId, expense.getCreatedBy());
 
         receiptService.updateReceipt(currentUserId, expense, null, true, null);
         expense.deleteExpense();
@@ -510,12 +517,7 @@ public class ExpenseService {
     }
 
     private void validateWriteMembership(Long tripId, Long currentUserId) {
-        var member = tripMemberRepository.findByTrip_IdAndUserIdAndIsDelFalse(tripId, currentUserId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission in this trip"));
-        if (member.getStatus() != TripMemberStatus.ACTIVE
-                || member.getRole() == com.tripbudget.tripbudget_core.trip.enums.TripMemberRole.VIEWER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to edit expenses");
-        }
+        permissions.requireActiveMember(tripId, currentUserId);
     }
 
     private void validateMembership(Long tripId, Long currentUserId) {
@@ -582,6 +584,7 @@ public class ExpenseService {
 
         return new ExpenseResponse(
                 hashidsService.encode(entity.getId()),
+                entity.getCreatedBy() != null ? hashidsService.encode(entity.getCreatedBy()) : null,
                 hashidsService.encode(entity.getTripId()),
                 hashidsService.encode(entity.getPayerId()),
                 payerName,

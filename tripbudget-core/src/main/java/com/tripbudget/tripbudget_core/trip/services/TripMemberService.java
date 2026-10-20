@@ -58,7 +58,7 @@ public class TripMemberService {
         TripEntity trip = getActiveTrip(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
-        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE && caller.getRole() != TripMemberRole.EDITOR) {
+        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only trip owner and vice can invite members");
         }
 
@@ -66,7 +66,7 @@ public class TripMemberService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot invite a member with OWNER role");
         }
 
-        if (caller.getRole() != TripMemberRole.OWNER && (req.role() == TripMemberRole.VICE || req.role() == TripMemberRole.EDITOR)) {
+        if (caller.getRole() != TripMemberRole.OWNER && (req.role() == TripMemberRole.VICE)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only trip owner can assign VICE role");
         }
 
@@ -111,15 +111,18 @@ public class TripMemberService {
         getActiveTrip(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
-        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE && caller.getRole() != TripMemberRole.EDITOR) {
+        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner or vice can approve members");
         }
 
         TripMemberEntity targetMember = tripMemberRepository.findByIdAndTrip_IdAndIsDelFalse(memberId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip member not found"));
 
-        if (targetMember.getStatus() == TripMemberStatus.ACTIVE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Member is already active");
+        if (caller.getRole() != TripMemberRole.OWNER && targetMember.getRole() != TripMemberRole.MEMBER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vice can only approve regular members");
+        }
+        if (targetMember.getStatus() != TripMemberStatus.INVITED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending invitations can be approved");
         }
 
         targetMember.updateStatus(TripMemberStatus.ACTIVE);
@@ -133,29 +136,13 @@ public class TripMemberService {
     public TripMemberResponse updateMemberRole(Long currentUserId, Long tripId, Long memberId, UpdateMemberRoleRequest req) {
         getActiveTrip(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
-
-        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE && caller.getRole() != TripMemberRole.EDITOR) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner and vice can change member roles");
+        if (caller.getRole() != TripMemberRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner can change member roles");
         }
-
         TripMemberEntity targetMember = tripMemberRepository.findByIdAndTrip_IdAndIsDelFalse(memberId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip member not found"));
-
-        if (targetMember.getRole() == TripMemberRole.OWNER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot modify role of the trip owner");
-        }
-
-        if (req.role() == TripMemberRole.OWNER) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot promote member to OWNER. Ownership transfer is not supported here.");
-        }
-
-        if (caller.getRole() != TripMemberRole.OWNER) {
-            if (targetMember.getRole() == TripMemberRole.VICE || targetMember.getRole() == TripMemberRole.EDITOR) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vice cannot modify another Vice's role");
-            }
-            if (req.role() == TripMemberRole.VICE || req.role() == TripMemberRole.EDITOR) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only trip owner can assign Vice role");
-            }
+        if (targetMember.getRole() == TripMemberRole.OWNER || req.role() == TripMemberRole.OWNER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ownership transfer is not supported here");
         }
 
         targetMember.updateRole(req.role());
@@ -170,7 +157,7 @@ public class TripMemberService {
         getActiveTrip(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
-        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE && caller.getRole() != TripMemberRole.EDITOR) {
+        if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner and vice can remove members");
         }
 
@@ -185,7 +172,7 @@ public class TripMemberService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove yourself. Use leave trip instead.");
         }
 
-        if (caller.getRole() != TripMemberRole.OWNER && (targetMember.getRole() == TripMemberRole.VICE || targetMember.getRole() == TripMemberRole.EDITOR)) {
+        if (caller.getRole() != TripMemberRole.OWNER && (targetMember.getRole() == TripMemberRole.VICE)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vice cannot remove another Vice");
         }
 

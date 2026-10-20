@@ -11,6 +11,7 @@ import java.util.List;
 
 public record ExpenseResponse(
         String id,
+        String createdBy,
         String tripId,
         String payerId,
         String payerName,

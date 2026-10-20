@@ -1,7 +1,10 @@
 package com.tripbudget.tripbudget_core.trip.entities;
 
 import com.tripbudget.tripbudget_core.common.entities.BaseEntity;
+import com.tripbudget.tripbudget_core.trip.enums.TripMemberRole;
 import com.tripbudget.tripbudget_core.trip.enums.TripStatus;
+import com.tripbudget.tripbudget_core.trip.enums.TripVisibility;
+
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -47,11 +50,11 @@ public class TripEntity extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private com.tripbudget.tripbudget_core.trip.enums.TripVisibility visibility = com.tripbudget.tripbudget_core.trip.enums.TripVisibility.PRIVATE;
+    private TripVisibility visibility = TripVisibility.PRIVATE;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "public_role", nullable = false, length = 30)
-    private com.tripbudget.tripbudget_core.trip.enums.TripMemberRole publicRole = com.tripbudget.tripbudget_core.trip.enums.TripMemberRole.VIEWER;
+    private TripMemberRole publicRole = TripMemberRole.MEMBER;
 
     @Column(name = "share_token", unique = true, length = 64)
     private String shareToken;
@@ -96,17 +99,21 @@ public class TripEntity extends BaseEntity {
 
         // always DRAFT when create trip
         trip.status = TripStatus.DRAFT;
-        trip.visibility = com.tripbudget.tripbudget_core.trip.enums.TripVisibility.PRIVATE;
-        trip.publicRole = com.tripbudget.tripbudget_core.trip.enums.TripMemberRole.VIEWER;
+        trip.visibility = TripVisibility.PRIVATE;
+        trip.publicRole = TripMemberRole.MEMBER;
         trip.shareToken = java.util.UUID.randomUUID().toString().replace("-", "");
 
         return trip;
     }
 
     public void updateShareSettings(
-            com.tripbudget.tripbudget_core.trip.enums.TripVisibility visibility,
-            com.tripbudget.tripbudget_core.trip.enums.TripMemberRole publicRole
+            TripVisibility visibility,
+            TripMemberRole publicRole
     ) {
+        if (publicRole != null && publicRole != TripMemberRole.MEMBER) {
+            throw new IllegalArgumentException("Public links can only assign MEMBER role");
+        }
+
         if (visibility != null) {
             this.visibility = visibility;
         }
