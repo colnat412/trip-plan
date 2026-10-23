@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { HashidsService } from 'src/common/hashids/hashids.service';
 import { AcceptPoliciesDto } from './dtos/accept-policies.dto';
-import { POLICY_VERSION } from './policies';
+import { POLICY_VERSION, policyProfile } from './policies';
 import { UserEntity } from './entities/user.entity';
 import { RegisterDto } from '../auth/dtos/auto.dto';
 
@@ -38,6 +38,19 @@ export class UsersService {
         message: 'Accept the policies before using Trip Plan',
       });
     }
+  }
+
+  async updateProfile(subject: string | number, name: string) {
+    const user = await this.authenticatedUser(subject);
+    await this.userRepository.update(user.id, { name });
+    const updated = await this.authenticatedUser(subject);
+    return {
+      id: this.hashids.encode(updated.id),
+      email: updated.email,
+      name: updated.name,
+      avatarUrl: updated.avatarUrl,
+      ...policyProfile(updated),
+    };
   }
 
   async acceptPolicies(subject: string | number, dto: AcceptPoliciesDto) {

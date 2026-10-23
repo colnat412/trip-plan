@@ -9,14 +9,34 @@ import {
 import type { Request } from 'express';
 import { UserAvatarService } from './user-avatar.service';
 import { UpdateAvatarDto } from './dtos/update-avatar.dto';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { UsersService } from './users.service';
 
 type AuthenticatedRequest = Request & { user: { sub: string | number } };
 
-@Controller('users/me/avatar')
+@Controller('users/me')
 export class UserController {
-  constructor(private readonly avatars: UserAvatarService) {}
+  constructor(
+    private readonly avatars: UserAvatarService,
+    private readonly users: UsersService,
+  ) {}
 
-  @Patch()
+  @Patch('profile')
+  updateProfile(
+    @Req() request: AuthenticatedRequest,
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    )
+    dto: UpdateProfileDto,
+  ) {
+    return this.users.updateProfile(request.user.sub, dto.name);
+  }
+
+  @Patch('avatar')
   updateAvatar(
     @Req() request: AuthenticatedRequest,
     @Body(
@@ -31,7 +51,7 @@ export class UserController {
     return this.avatars.setAvatar(request.user.sub, dto.uploadId);
   }
 
-  @Delete()
+  @Delete('avatar')
   removeAvatar(@Req() request: AuthenticatedRequest) {
     return this.avatars.setAvatar(request.user.sub, null);
   }
