@@ -1,6 +1,8 @@
 package com.tripbudget.tripbudget_core.expense.repositories;
 
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
+import com.tripbudget.tripbudget_core.expense.repositories.projections.CategorySpendingTotal;
+import com.tripbudget.tripbudget_core.expense.repositories.projections.ActivitySpendingTotal;
 import com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,28 +34,49 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long>, J
 
     Optional<ExpenseEntity> findByIdAndIsDelFalse(Long id);
 
-    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM ExpenseEntity e " +
-           "WHERE e.tripId = :tripId AND e.status = :status AND e.isDel = false")
+    @Query("""
+            SELECT COALESCE(SUM(expense.amount), 0)
+            FROM ExpenseEntity expense
+            WHERE expense.tripId = :tripId
+              AND expense.status = :status
+              AND expense.isDel = false
+            """)
     BigDecimal sumAmountByTripIdAndStatus(
             @Param("tripId") Long tripId,
             @Param("status") ExpenseStatus status
     );
 
-    @Query("SELECT e.category, COALESCE(SUM(e.amount), 0) FROM ExpenseEntity e " +
-           "WHERE e.tripId = :tripId AND e.status = :status AND e.isDel = false " +
-           "GROUP BY e.category")
-    List<Object[]> sumAmountByCategory(
+    @Query("""
+            SELECT expense.category AS category, COALESCE(SUM(expense.amount), 0) AS totalSpent
+            FROM ExpenseEntity expense
+            WHERE expense.tripId = :tripId
+              AND expense.status = :status
+              AND expense.isDel = false
+            GROUP BY expense.category
+            """)
+    List<CategorySpendingTotal> sumAmountByCategory(
             @Param("tripId") Long tripId,
             @Param("status") ExpenseStatus status
     );
 
-    @Query("SELECT e.activityId, COALESCE(SUM(e.amount), 0) FROM ExpenseEntity e " +
-           "WHERE e.tripId = :tripId AND e.activityId IS NOT NULL AND e.status <> com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus.DELETED AND e.isDel = false " +
-           "GROUP BY e.activityId")
-    List<Object[]> sumAmountByTripIdAndActivityGrouped(@Param("tripId") Long tripId);
+    @Query("""
+            SELECT expense.activityId AS activityId, COALESCE(SUM(expense.amount), 0) AS totalSpent
+            FROM ExpenseEntity expense
+            WHERE expense.tripId = :tripId
+              AND expense.activityId IS NOT NULL
+              AND expense.status <> com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus.DELETED
+              AND expense.isDel = false
+            GROUP BY expense.activityId
+            """)
+    List<ActivitySpendingTotal> sumAmountByTripIdAndActivityGrouped(@Param("tripId") Long tripId);
 
-    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM ExpenseEntity e " +
-           "WHERE e.tripId = :tripId AND e.activityId = :activityId AND e.status <> com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus.DELETED AND e.isDel = false")
+    @Query("""
+            SELECT COALESCE(SUM(expense.amount), 0)
+            FROM ExpenseEntity expense
+            WHERE expense.tripId = :tripId
+              AND expense.activityId = :activityId
+              AND expense.status <> com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus.DELETED
+              AND expense.isDel = false
+            """)
     BigDecimal sumAmountByActivityId(@Param("tripId") Long tripId, @Param("activityId") Long activityId);
 }
-

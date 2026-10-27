@@ -249,7 +249,6 @@ public class SettlementService {
         settlementRepository.save(settlement);
     }
 
-    // (GREEDY MIN-CASH-FLOW)
     private List<SuggestedSettlementResponse> computeSuggestedSettlements(
             Map<Long, BigDecimal> netBalances,
             Map<Long, UserEntity> userMap,
@@ -269,11 +268,11 @@ public class SettlementService {
         List<BalanceEntry> debtors = new ArrayList<>();
 
         for (Map.Entry<Long, BigDecimal> entry : netBalances.entrySet()) {
-            BigDecimal bal = entry.getValue();
-            if (bal.compareTo(EPSILON) > 0) {
-                creditors.add(new BalanceEntry(entry.getKey(), bal));
-            } else if (bal.compareTo(EPSILON.negate()) < 0) {
-                debtors.add(new BalanceEntry(entry.getKey(), bal.abs()));
+            BigDecimal balance = entry.getValue();
+            if (balance.compareTo(EPSILON) > 0) {
+                creditors.add(new BalanceEntry(entry.getKey(), balance));
+            } else if (balance.compareTo(EPSILON.negate()) < 0) {
+                debtors.add(new BalanceEntry(entry.getKey(), balance.abs()));
             }
         }
 
@@ -281,12 +280,12 @@ public class SettlementService {
         debtors.sort((a, b) -> b.amount.compareTo(a.amount));
 
         List<SuggestedSettlementResponse> suggested = new ArrayList<>();
-        int cIdx = 0;
-        int dIdx = 0;
+        int creditorIndex = 0;
+        int debtorIndex = 0;
 
-        while (cIdx < creditors.size() && dIdx < debtors.size()) {
-            BalanceEntry creditor = creditors.get(cIdx);
-            BalanceEntry debtor = debtors.get(dIdx);
+        while (creditorIndex < creditors.size() && debtorIndex < debtors.size()) {
+            BalanceEntry creditor = creditors.get(creditorIndex);
+            BalanceEntry debtor = debtors.get(debtorIndex);
 
             BigDecimal settleAmount = creditor.amount.min(debtor.amount);
             if (settleAmount.compareTo(EPSILON) >= 0) {
@@ -311,10 +310,10 @@ public class SettlementService {
             debtor.amount = debtor.amount.subtract(settleAmount);
 
             if (creditor.amount.compareTo(EPSILON) < 0) {
-                cIdx++;
+                creditorIndex++;
             }
             if (debtor.amount.compareTo(EPSILON) < 0) {
-                dIdx++;
+                debtorIndex++;
             }
         }
 

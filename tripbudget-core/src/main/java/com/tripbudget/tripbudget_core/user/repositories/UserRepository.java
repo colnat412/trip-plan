@@ -11,14 +11,27 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     // Identity owns acceptance. This read uses the existing shared-database boundary.
-    @Query(value = "SELECT EXISTS (SELECT 1 FROM public.users WHERE id = :id AND policies_accepted_at IS NOT NULL AND policies_version IS NOT NULL)", nativeQuery = true)
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.users
+                WHERE id = :id
+                  AND policies_accepted_at IS NOT NULL
+                  AND policies_version IS NOT NULL
+            )
+            """, nativeQuery = true)
     boolean hasAcceptedPolicies(@Param("id") Long id);
 
     Optional<UserEntity> findByEmail(String email);
 
     List<UserEntity> findAllByIdIn(Collection<Long> ids);
 
-    @Query("SELECT u.id FROM UserEntity u WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    @Query("""
+            SELECT user.id
+            FROM UserEntity user
+            WHERE LOWER(user.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(user.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            """)
     List<Long> findIdsByKeyword(@Param("keyword") String keyword);
 }
 

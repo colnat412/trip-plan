@@ -17,7 +17,12 @@ public interface SettlementRepository extends JpaRepository<SettlementEntity, Lo
 
     Optional<SettlementEntity> findByIdAndTripIdAndIsDelFalse(Long id, Long tripId);
 
-    @Query("SELECT COALESCE(SUM(s.amount), 0) FROM SettlementEntity s WHERE s.tripId = :tripId AND s.isDel = false")
+    @Query("""
+            SELECT COALESCE(SUM(settlement.amount), 0)
+            FROM SettlementEntity settlement
+            WHERE settlement.tripId = :tripId
+              AND settlement.isDel = false
+            """)
     BigDecimal sumAmountByTripId(@Param("tripId") Long tripId);
 }
 

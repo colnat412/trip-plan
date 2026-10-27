@@ -16,7 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
 
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -48,7 +47,6 @@ public class RedisSessionValidationFilter extends OncePerRequestFilter {
                 .getAuthentication();
 
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            String userId = jwtAuth.getToken().getSubject();
             String sessionId = jwtAuth.getToken().getClaimAsString("sid");
             String tokenType = jwtAuth.getToken().getClaimAsString("type");
 
@@ -66,18 +64,7 @@ public class RedisSessionValidationFilter extends OncePerRequestFilter {
                 return;
             }
 
-//            try {
-//                JsonNode session = objectMapper.readTree(sessionRaw);
-//                String sessionUserId = session.path("userId").asText();
-//
-//                if (!userId.equals(sessionUserId)) {
-//                    reject(response);
-//                    return;
-//                }
-//            } catch (JsonProcessingException error) {
-//                reject(response);
-//                return;
-//            }
+
         }
 
         filterChain.doFilter(request, response);

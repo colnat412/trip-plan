@@ -1,6 +1,7 @@
 package com.tripbudget.tripbudget_core.common.exceptions;
 
 import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -62,7 +64,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception exception)
     {
-        exception.printStackTrace(); // debug
+        log.error("Unhandled Core API error", exception);
         return  ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(

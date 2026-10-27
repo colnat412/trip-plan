@@ -6,6 +6,7 @@ import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
 import com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus;
 import com.tripbudget.tripbudget_core.expense.repositories.ExpenseRepository;
+import com.tripbudget.tripbudget_core.expense.repositories.projections.ActivitySpendingTotal;
 import com.tripbudget.tripbudget_core.plan.dtos.request.*;
 import com.tripbudget.tripbudget_core.plan.dtos.response.*;
 import com.tripbudget.tripbudget_core.plan.entities.PlanActivityEntity;
@@ -59,6 +60,16 @@ public class PlanService {
     private final UserRepository userRepository;
     private final HashidsService hashidsService;
     private final ApplicationEventPublisher eventPublisher;
+
+    private Map<Long, BigDecimal> getActivitySpentById(Long tripId) {
+        Map<Long, BigDecimal> spentByActivity = new HashMap<>();
+        for (ActivitySpendingTotal total : expenseRepository.sumAmountByTripIdAndActivityGrouped(tripId)) {
+            if (total.getActivityId() != null && total.getTotalSpent() != null) {
+                spentByActivity.put(total.getActivityId(), total.getTotalSpent());
+            }
+        }
+        return spentByActivity;
+    }
 
     private TripEntity getActiveMemberTrip(Long tripId, Long currentUserId) {
         TripEntity trip = tripRepository.findActiveTrip(tripId);
@@ -117,14 +128,7 @@ public class PlanService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        Map<Long, BigDecimal> activitySpentMap = new HashMap<>();
-        for (Object[] row : expenseRepository.sumAmountByTripIdAndActivityGrouped(tripId)) {
-            Long actId = (Long) row[0];
-            BigDecimal sum = (BigDecimal) row[1];
-            if (actId != null && sum != null) {
-                activitySpentMap.put(actId, sum);
-            }
-        }
+        Map<Long, BigDecimal> activitySpentMap = getActivitySpentById(tripId);
 
         Map<Long, BigDecimal> activeExpenseAmounts = Collections.emptyMap();
         if (!expenseIds.isEmpty()) {
@@ -222,15 +226,7 @@ public class PlanService {
             }
         }
 
-        Map<Long, BigDecimal> activitySpentMap = new HashMap<>();
-        List<Object[]> grouped = expenseRepository.sumAmountByTripIdAndActivityGrouped(tripId);
-        for (Object[] row : grouped) {
-            Long actId = (Long) row[0];
-            BigDecimal sum = (BigDecimal) row[1];
-            if (actId != null && sum != null) {
-                activitySpentMap.put(actId, sum);
-            }
-        }
+        Map<Long, BigDecimal> activitySpentMap = getActivitySpentById(tripId);
 
         Map<Long, BigDecimal> activeExpenseAmounts = Collections.emptyMap();
         if (!expenseIds.isEmpty()) {
@@ -379,15 +375,7 @@ public class PlanService {
                 .map(PlanActivityEntity::getExpenseId)
                 .collect(Collectors.toSet());
 
-        Map<Long, BigDecimal> activitySpentMap = new HashMap<>();
-        List<Object[]> grouped = expenseRepository.sumAmountByTripIdAndActivityGrouped(tripId);
-        for (Object[] row : grouped) {
-            Long actId = (Long) row[0];
-            BigDecimal sum = (BigDecimal) row[1];
-            if (actId != null && sum != null) {
-                activitySpentMap.put(actId, sum);
-            }
-        }
+        Map<Long, BigDecimal> activitySpentMap = getActivitySpentById(tripId);
 
         Map<Long, BigDecimal> activeExpenseAmounts = Collections.emptyMap();
         if (!expenseIds.isEmpty()) {
