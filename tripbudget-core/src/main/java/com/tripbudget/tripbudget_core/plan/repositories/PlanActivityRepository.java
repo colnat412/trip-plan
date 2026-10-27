@@ -18,12 +18,30 @@ public interface PlanActivityRepository extends JpaRepository<PlanActivityEntity
 
     List<PlanActivityEntity> findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(Long dayId);
 
-    @Query("SELECT a FROM PlanActivityEntity a WHERE a.day.id = :dayId AND a.isDel = false ORDER BY a.startTime ASC NULLS LAST, a.orderIndex ASC, a.createdAt ASC")
+    @Query("""
+            SELECT activity
+            FROM PlanActivityEntity activity
+            WHERE activity.day.id = :dayId
+              AND activity.isDel = false
+            ORDER BY activity.startTime ASC NULLS LAST, activity.orderIndex ASC, activity.createdAt ASC
+            """)
     List<PlanActivityEntity> findAllByDayIdSorted(@Param("dayId") Long dayId);
 
     @Query(
-            value = "SELECT a FROM PlanActivityEntity a WHERE a.day.id = :dayId AND a.isDel = false ORDER BY a.startTime ASC NULLS LAST, a.orderIndex ASC, a.createdAt ASC, a.id ASC",
-            countQuery = "SELECT COUNT(a) FROM PlanActivityEntity a WHERE a.day.id = :dayId AND a.isDel = false"
+            value = """
+                    SELECT activity
+                    FROM PlanActivityEntity activity
+                    WHERE activity.day.id = :dayId
+                      AND activity.isDel = false
+                    ORDER BY activity.startTime ASC NULLS LAST, activity.orderIndex ASC,
+                             activity.createdAt ASC, activity.id ASC
+                    """,
+            countQuery = """
+                    SELECT COUNT(activity)
+                    FROM PlanActivityEntity activity
+                    WHERE activity.day.id = :dayId
+                      AND activity.isDel = false
+                    """
     )
     Page<PlanActivityEntity> findPageByDayIdSorted(@Param("dayId") Long dayId, Pageable pageable);
 
