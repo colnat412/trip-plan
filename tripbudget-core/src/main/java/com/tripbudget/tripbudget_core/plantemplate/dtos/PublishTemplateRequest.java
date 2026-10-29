@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+import java.util.UUID;
 
 public record PublishTemplateRequest(
         @NotBlank @Size(max = 200) String title,
@@ -16,5 +17,7 @@ public record PublishTemplateRequest(
         boolean includeNotes,
         @NotNull @Size(max = 200) List<@NotBlank String> checklistIds,
         @Size(max = 64) String sourceFingerprint,
-        Integer expectedContentVersion
+        Integer expectedContentVersion,
+        UUID coverUploadId,
+        boolean removeCover
 ) {}

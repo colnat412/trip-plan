@@ -48,6 +48,14 @@ public class PlanTemplateController {
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "My templates", response));
     }
 
+    @GetMapping("/trip/{tripId}/plan-template/cover")
+    public ResponseEntity<ApiResponse<String>> getCover(
+            @PathVariable String tripId, @CurrentUser CurrentUserDto user) {
+        Long currentUserId = user.id();
+        String cover = templateService.getCover(currentUserId, hashidsService.decode(tripId));
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Template cover", cover));
+    }
+
     @PostMapping("/trip/{tripId}/plan-template/preview")
     public ResponseEntity<ApiResponse<PlanTemplatePreviewResponse>> previewTemplate(
             @PathVariable String tripId,

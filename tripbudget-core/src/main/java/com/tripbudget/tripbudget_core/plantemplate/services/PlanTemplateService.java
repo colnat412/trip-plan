@@ -11,6 +11,8 @@ import com.tripbudget.tripbudget_core.plantemplate.repositories.PlanTemplateRepo
 import com.tripbudget.tripbudget_core.plantemplate.snapshot.PlanTemplateFingerprint;
 import com.tripbudget.tripbudget_core.plantemplate.snapshot.PlanTemplateSnapshotBuilder;
 import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
+import com.tripbudget.tripbudget_core.trip.repositories.TripRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,15 +32,26 @@ public class PlanTemplateService {
     private final PlanTemplateSnapshotBuilder snapshotBuilder;
     private final PlanTemplateFingerprint fingerprint;
     private final PlanTemplateQueryService queryService;
+    private final PlanTemplateCoverService coverService;
+    private final TripRepository tripRepository;
+
+    @Transactional(readOnly = true)
+    public String getCover(Long currentUserId, Long sourceTripId) {
+        TripEntity source = accessService.requireSourceOwner(currentUserId, sourceTripId);
+        PlanTemplateEntity existing = templateRepository.findBySourceTripId(sourceTripId).orElse(null);
+        return coverService.current(source, existing).url();
+    }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public PlanTemplatePreviewResponse preview(Long currentUserId, Long sourceTripId, PublishTemplateRequest request) {
         TripEntity sourceTrip = accessService.requireSourceOwner(currentUserId, sourceTripId);
         TemplateSnapshot snapshot = snapshotBuilder.build(sourceTrip, request);
-        int currentVersion = templateRepository.findBySourceTripId(sourceTripId)
-                .map(PlanTemplateEntity::getContentVersion).orElse(0);
+        PlanTemplateEntity existing = templateRepository.findBySourceTripId(sourceTripId).orElse(null);
+        int currentVersion = existing == null ? 0 : existing.getContentVersion();
+        var cover = coverService.resolve(currentUserId, sourceTrip, existing, request);
         return new PlanTemplatePreviewResponse(
-                snapshot, fingerprint.forPublication(sourceTrip, request, snapshot), currentVersion
+                snapshot, fingerprint.forPublication(sourceTrip, request, snapshot, cover.uploadId(), cover.url()),
+                currentVersion, cover.url()
         );
     }
 
@@ -65,6 +78,7 @@ public class PlanTemplateService {
             Long currentUserId, Long sourceTripId, Long expectedTemplateId, PublishTemplateRequest request
     ) {
         lockRepository.lockPublication(sourceTripId);
+        tripRepository.findByIdForUpdate(sourceTripId).orElseThrow(this::templateNotFound);
         TripEntity sourceTrip = accessService.requireSourceOwner(currentUserId, sourceTripId);
         PlanTemplateEntity template = findOrCreatePublication(currentUserId, sourceTripId);
         if (expectedTemplateId != null && !expectedTemplateId.equals(template.getId())) {
@@ -76,12 +90,17 @@ public class PlanTemplateService {
         }
 
         TemplateSnapshot snapshot = snapshotBuilder.build(sourceTrip, request);
-        String currentFingerprint = fingerprint.forPublication(sourceTrip, request, snapshot);
+        var cover = coverService.resolve(currentUserId, sourceTrip,
+                template.getContentVersion() == 0 ? null : template, request);
+        String currentFingerprint = fingerprint.forPublication(sourceTrip, request, snapshot, cover.uploadId(), cover.url());
         if (!Objects.equals(request.sourceFingerprint(), currentFingerprint)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "SOURCE_CHANGED_PREVIEW_AGAIN");
         }
+        UUID previousCoverId = template.getCoverUploadId();
+        coverService.apply(currentUserId, template, request, cover);
         template.publish(request, snapshot, sourceTrip.getBaseCurrency());
         templateRepository.saveAndFlush(template);
+        coverService.releasePrevious(currentUserId, previousCoverId, template.getCoverUploadId());
         return queryService.toDetailResponse(template);
     }
 

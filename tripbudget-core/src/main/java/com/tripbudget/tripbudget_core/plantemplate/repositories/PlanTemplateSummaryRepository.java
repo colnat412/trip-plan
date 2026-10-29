@@ -19,6 +19,7 @@ public class PlanTemplateSummaryRepository {
 
     private static final String SELECT_METADATA = """
             SELECT template.id,
+                   template.cover_url,
                    template.source_trip_id,
                    template.title,
                    template.destination,
@@ -74,7 +75,8 @@ public class PlanTemplateSummaryRepository {
                     row.getString("status"),
                     row.getInt("content_version"),
                     row.getString("author_name"),
-                    row.getLong("usage_count")
+                    row.getLong("usage_count"),
+                    row.getString("cover_url")
             );
 
     public Page<PlanTemplateSummary> search(PlanTemplateSearchCriteria criteria) {

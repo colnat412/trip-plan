@@ -18,6 +18,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Getter
 @Entity
@@ -71,6 +72,17 @@ public class PlanTemplateEntity extends BaseEntity {
 
     @Column(nullable = false)
     private Instant publishedAt;
+
+    @Column(name = "cover_upload_id")
+    private UUID coverUploadId;
+
+    @Column(name = "cover_url", columnDefinition = "text")
+    private String coverUrl;
+
+    public void updateCover(UUID uploadId, String url) {
+        this.coverUploadId = uploadId;
+        this.coverUrl = url;
+    }
 
     public static PlanTemplateEntity create(Long authorId, Long sourceTripId) {
         PlanTemplateEntity template = new PlanTemplateEntity();

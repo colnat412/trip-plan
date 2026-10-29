@@ -16,5 +16,6 @@ public record PlanTemplateSummary(
         String status,
         int contentVersion,
         String authorName,
-        long usageCount
+        long usageCount,
+        String coverUrl
 ) {}

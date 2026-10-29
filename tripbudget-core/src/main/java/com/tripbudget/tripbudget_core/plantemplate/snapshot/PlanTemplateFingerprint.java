@@ -20,11 +20,12 @@ import java.util.List;
 public class PlanTemplateFingerprint {
     private final ObjectMapper objectMapper;
 
-    public String forPublication(TripEntity sourceTrip, PublishTemplateRequest request, TemplateSnapshot snapshot) {
+    public String forPublication(TripEntity sourceTrip, PublishTemplateRequest request, TemplateSnapshot snapshot, java.util.UUID coverId, String coverUrl) {
         return hash(Arrays.asList(
                 sourceTrip.getId(), sourceTrip.getStartDate(), sourceTrip.getEndDate(),
                 sourceTrip.getBaseCurrency(), request.title().trim(), request.destination().trim(),
-                request.description(), request.tags(), snapshot
+                request.description(), request.tags(), snapshot, coverId, coverUrl,
+                request.coverUploadId(), request.removeCover()
         ));
     }
 

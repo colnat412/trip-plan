@@ -17,5 +17,6 @@ public record PlanTemplateCardResponse(
         int contentVersion,
         String authorName,
         long usageCount,
-        @JsonInclude(JsonInclude.Include.NON_NULL) String sourceTripId
+        @JsonInclude(JsonInclude.Include.NON_NULL) String sourceTripId,
+        String coverUrl
 ) {}

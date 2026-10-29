@@ -24,7 +24,7 @@ public class PlanTemplateResponseMapper {
                 hashidsService.encode(summary.id()), summary.title(), summary.destination(),
                 summary.description(), summary.tags(), summary.durationDays(), summary.activityCount(),
                 summary.estimatedCost(), summary.currency(), summary.status(), summary.contentVersion(),
-                summary.authorName(), summary.usageCount(), sourceTripId
+                summary.authorName(), summary.usageCount(), sourceTripId, summary.coverUrl()
         );
     }
 }

@@ -11,6 +11,9 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 public interface TripRepository extends JpaRepository<TripEntity, Long>, JpaSpecificationExecutor<TripEntity> {
     @Query(
@@ -48,6 +51,12 @@ public interface TripRepository extends JpaRepository<TripEntity, Long>, JpaSpec
     """
     )
     TripEntity findActiveTrip(@Param("tripId") Long tripId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT trip FROM TripEntity trip WHERE trip.id = :tripId")
+    Optional<TripEntity> findByIdForUpdate(@Param("tripId") Long tripId);
+
+    boolean existsByCoverUploadId(UUID coverUploadId);
 
     Optional<TripEntity> findByShareTokenAndIsDelFalse(String shareToken);
 }

@@ -37,7 +37,8 @@ public interface PlanTemplateSaveRepository extends JpaRepository<PlanTemplateSa
                 template.description, template.tags, template.durationDays, template.activityCount,
                 template.estimatedCost, template.currency, cast(template.status as string),
                 template.contentVersion, coalesce(author.name, ''),
-                (SELECT COUNT(receipt) FROM PlanTemplateCopyEntity receipt WHERE receipt.templateId = template.id)
+                (SELECT COUNT(receipt) FROM PlanTemplateCopyEntity receipt WHERE receipt.templateId = template.id),
+                template.coverUrl
             )
             FROM PlanTemplateSaveEntity saved
             JOIN PlanTemplateEntity template ON template.id = saved.templateId
