@@ -7,6 +7,7 @@ import com.tripbudget.tripbudget_core.plantemplate.dtos.response.PlanTemplateLis
 import com.tripbudget.tripbudget_core.plantemplate.entities.PlanTemplateEntity;
 import com.tripbudget.tripbudget_core.plantemplate.mappers.PlanTemplateResponseMapper;
 import com.tripbudget.tripbudget_core.plantemplate.repositories.PlanTemplateRepository;
+import com.tripbudget.tripbudget_core.plantemplate.repositories.PlanTemplateSaveRepository;
 import com.tripbudget.tripbudget_core.plantemplate.repositories.PlanTemplateSearchCriteria;
 import com.tripbudget.tripbudget_core.plantemplate.repositories.PlanTemplateSummary;
 import com.tripbudget.tripbudget_core.plantemplate.repositories.PlanTemplateSummaryRepository;
@@ -25,6 +26,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class PlanTemplateQueryService {
     private final PlanTemplateRepository templateRepository;
+    private final PlanTemplateSaveRepository saveRepository;
     private final PlanTemplateSummaryRepository summaryRepository;
     private final PlanTemplateResponseMapper responseMapper;
     private final PlanTemplateAccessService accessService;
@@ -51,6 +53,14 @@ public class PlanTemplateQueryService {
         List<PlanTemplateCardResponse> cards = summaries.getContent().stream()
                 .map(responseMapper::toOwnedCard).toList();
         return toListResponse(summaries, cards);
+    }
+
+    public PlanTemplateListResponse listSavedTemplates(Long currentUserId, int page, int size) {
+        validateFilters("", page, size);
+        Page<PlanTemplateSummary> summaries = saveRepository.findVisibleSavedTemplates(
+                currentUserId, PageRequest.of(page, size));
+        return toListResponse(summaries, summaries.getContent().stream()
+                .map(responseMapper::toPublicCard).toList());
     }
 
     public PlanTemplateDetailResponse getPublicTemplate(Long templateId) {
