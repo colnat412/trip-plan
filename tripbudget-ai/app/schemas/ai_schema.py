@@ -7,7 +7,7 @@ class ActivitySchema(BaseModel):
     startTime: str = Field(description="Thời gian bắt đầu, format HH:MM (VD: 08:00)")
     endTime: str = Field(description="Thời gian kết thúc, format HH:MM (VD: 10:30)")
     location: Optional[str] = Field(description="Tên địa điểm cụ thể nếu có")
-    category: str = Field(description="CHỈ ĐƯỢC CHỌN 1 TRONG CÁC GIÁ TRỊ: FLIGHT, HOTEL, FOOD, TRANSPORT, SIGHTSEEING, ENTERTAINMENT, SHOPPING, OTHER")
+    category: str = Field(description="CHỈ ĐƯỢC CHỌN 1 TRONG CÁC GIÁ TRỊ: FOOD_BEVERAGE, TRANSPORTATION, SHOPPING, ACCOMMODATION, SIGHTSEEING, OTHER")
     estimatedCost: float = Field(description="Chi phí ước tính bằng VNĐ (VD: 150000)")
     note: Optional[str] = Field(description="Mẹo hoặc lưu ý nhỏ (Tối đa 1 câu)")
 

@@ -35,7 +35,7 @@ class AIService:
 
         Lưu ý QUAN TRỌNG:
         - Phân bổ chi phí hợp lý để tổng estimatedCost của tất cả hoạt động không vượt quá tổng ngân sách.
-        - category CHỈ ĐƯỢC CHỌN 1 TRONG: FLIGHT, HOTEL, FOOD, TRANSPORT, SIGHTSEEING, ENTERTAINMENT, SHOPPING, OTHER.
+        - category CHỈ ĐƯỢC CHỌN 1 TRONG: FOOD_BEVERAGE, TRANSPORTATION, SHOPPING, ACCOMMODATION, SIGHTSEEING, OTHER.
         - Trả về 100% bằng tiếng Việt.
         - BẠN PHẢI TRẢ VỀ ĐÚNG FORMAT JSON DƯỚI ĐÂY, KHÔNG ĐƯỢC CÓ TEXT NÀO KHÁC BÊN NGOÀI:
         """
@@ -125,9 +125,9 @@ class AIService:
             + FOOD_BEVERAGE: Nhà hàng, ăn uống, cafe, siêu thị thực phẩm.
             + TRANSPORTATION: Taxi, xe ôm, grab, vé tàu, vé xe, máy bay, tiền xăng.
             + ACCOMMODATION: Khách sạn, homestay, phòng nghỉ.
-            + ENTERTAINMENT: Vé tham quan, bar, khu vui chơi, tour.
+            + SIGHTSEEING: Vé tham quan, vé vào cửa, vé sự kiện, tour.
             + SHOPPING: Quần áo, đồ lưu niệm, đồ điện tử.
-            + OTHER: Các loại khác.
+            + OTHER: Các loại khác, bao gồm vui chơi và giải trí không thuộc vé.
         - confidence: Ước lượng độ chính xác từ 0.0 đến 1.0 (ví dụ ảnh mờ thì 0.6, rõ nét thì 0.95).
         - items: Mảng các món đọc được, mỗi món có { "name": "tên món", "quantity": 1, "price": 50000 }.
         - raw_text: Tóm tắt 1 câu ngắn gọn về hóa đơn này (VD: "Bữa trưa 3 món tại Cơm Tấm Cali").
