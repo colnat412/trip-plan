@@ -2,6 +2,11 @@ package com.tripbudget.tripbudget_core.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.web.util.WebUtils;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.http.HttpMethod;
@@ -43,6 +48,47 @@ public class SecurityConfig {
         this.customAuthenticationEntryPoint = authenticationEntryPoint;
         this.customAccessDeniedHandler = accessDeniedHandler;
         this.policyAcceptanceFilter = policyAcceptanceFilter;
+    }
+
+    @Bean
+    public CookieCsrfTokenRepository realtimeCsrfTokens() {
+        var csrfCookies = new CookieCsrfTokenRepository();
+        csrfCookies.setCookieName("WS-XSRF-TOKEN");
+        csrfCookies.setCookiePath("/");
+        csrfCookies.setCookieCustomizer(cookie -> cookie.httpOnly(true).sameSite("Lax"));
+        return csrfCookies;
+    }
+
+    @Bean
+    @Order(1)
+    public SecurityFilterChain realtimeHttpSecurity(HttpSecurity http, CookieCsrfTokenRepository csrfCookies) throws Exception {
+        var bearerResolver = new DefaultBearerTokenResolver();
+        BearerTokenResolver resolver = request -> {
+            String bearer = bearerResolver.resolve(request);
+            if (bearer != null) return bearer;
+            var cookie = WebUtils.getCookie(request, "access_token");
+            return cookie == null ? null : cookie.getValue();
+        };
+        return http.securityMatcher("/ws", "/realtime/bootstrap")
+                .csrf(csrf -> csrf.csrfTokenRepository(csrfCookies))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+                .oauth2ResourceServer(oauth -> oauth.bearerTokenResolver(resolver)
+                        .jwt(Customizer.withDefaults())
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler))
+                .exceptionHandling(errors -> errors.authenticationEntryPoint(customAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler))
+                .addFilterAfter(redisSessionValidationFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(policyAcceptanceFilter, RedisSessionValidationFilter.class)
+                .build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<RedisSessionValidationFilter> redisSessionFilterRegistration() {
+        var registration = new FilterRegistrationBean<>(redisSessionValidationFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

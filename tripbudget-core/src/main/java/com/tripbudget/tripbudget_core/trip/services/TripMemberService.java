@@ -1,5 +1,6 @@
 package com.tripbudget.tripbudget_core.trip.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
 import com.tripbudget.tripbudget_core.trip.dtos.request.InviteMemberRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.request.UpdateMemberRoleRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.response.TripMemberResponse;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TripMemberService {
 
+    private final NotificationService notifications;
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
     private final UserRepository userRepository;
@@ -95,6 +97,7 @@ public class TripMemberService {
 
             existing.reactivate(req.role(), initialStatus);
             TripMemberEntity saved = tripMemberRepository.save(existing);
+            notifications.memberAdded(currentUserId, trip, saved);
             return mapToResponse(saved, targetUser);
         }
 
@@ -103,6 +106,7 @@ public class TripMemberService {
                 : TripMemberEntity.invite(trip, targetUser.getId(), req.role());
                 
         TripMemberEntity saved = tripMemberRepository.save(newMember);
+        notifications.memberAdded(currentUserId, trip, saved);
         return mapToResponse(saved, targetUser);
     }
 
@@ -127,6 +131,7 @@ public class TripMemberService {
 
         targetMember.updateStatus(TripMemberStatus.ACTIVE);
         TripMemberEntity saved = tripMemberRepository.save(targetMember);
+        notifications.memberApproved(currentUserId, saved);
 
         UserEntity user = userRepository.findById(targetMember.getUserId()).orElse(null);
         return mapToResponse(saved, user);

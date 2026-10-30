@@ -8,5 +8,15 @@ services:
     volumes:
       - redis_data:/data
 
+  realtime-proxy:
+    image: nginx:alpine
+    profiles: [realtime]
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dev/nginx-realtime.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   redis_data:

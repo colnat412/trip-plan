@@ -1,5 +1,6 @@
 package com.tripbudget.tripbudget_core.plan.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
 import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
 
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PlanService {
 
+    private final NotificationService notifications;
     private final TripPermissionService permissions;
 
     private final PlanDayRepository planDayRepository;
@@ -482,6 +484,7 @@ public class PlanService {
         ));
 
         publishPublicTripChanged(tripId);
+        notifications.activityCreated(currentUserId, tripId, saved.getId(), false);
         return PlanActivityResponse.from(saved, hashidsService);
     }
 

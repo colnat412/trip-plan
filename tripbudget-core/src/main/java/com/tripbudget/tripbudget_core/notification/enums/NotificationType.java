@@ -1,0 +1,6 @@
+package com.tripbudget.tripbudget_core.notification.enums;
+
+public enum NotificationType {
+    TRIP_MEMBER_ADDED, TRIP_INVITATION_PENDING, TRIP_MEMBER_APPROVAL_REQUIRED,
+    TRIP_MEMBERSHIP_APPROVED, TRIP_ACTIVITY_CREATED, TRIP_ACTIVITIES_GENERATED
+}

@@ -42,3 +42,9 @@ ai:
   service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
     api-key: ${AI_SERVICE_API_KEY:}
+
+# One Core instance; route /realtime to this service through a same-origin proxy.
+app:
+  web-origin: ${APP_WEB_ORIGIN:http://localhost:8080}
+notifications:
+  dispatch-delay-ms: ${NOTIFICATION_DISPATCH_DELAY_MS:1000}

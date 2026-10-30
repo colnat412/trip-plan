@@ -13,6 +13,8 @@ import java.util.Optional;
 
 @Repository
 public interface PlanActivityRepository extends JpaRepository<PlanActivityEntity, Long> {
+    boolean existsByIdAndTripIdAndIsDelFalse(Long id, Long tripId);
+
 
     List<PlanActivityEntity> findAllByTripIdAndIsDelFalseOrderByOrderIndexAsc(Long tripId);
 

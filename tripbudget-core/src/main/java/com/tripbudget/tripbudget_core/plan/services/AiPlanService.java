@@ -1,5 +1,6 @@
 package com.tripbudget.tripbudget_core.plan.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
 import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
 import com.tripbudget.tripbudget_core.plan.clients.AiPlanClient;
 
@@ -33,6 +34,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AiPlanService {
 
+    private final NotificationService notifications;
     private final TripPermissionService permissions;
 
     private final TripRepository tripRepository;
@@ -65,6 +67,7 @@ public class AiPlanService {
         
         JsonNode responseJson = aiPlanClient.generatePlan(request);
 
+        int createdActivities = 0;
         for (JsonNode dayNode : responseJson.get("days")) {
             int dayNumber = dayNode.get("dayNumber").asInt();
             LocalDate planDate = trip.getStartDate() != null ? trip.getStartDate().plusDays(dayNumber - 1) : null;
@@ -93,10 +96,12 @@ public class AiPlanService {
                             planDay, tripId, title, startTime, endTime, location, category, cost, orderIndex++, note
                     );
                     planActivityRepository.save(act);
+                    createdActivities++;
                 }
             }
         }
 
+        if (createdActivities > 0) notifications.activityCreated(currentUserId, tripId, null, true);
         eventPublisher.publishEvent(PublicTripChangedEvent.of(tripId));
     }
 
