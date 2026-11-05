@@ -2,7 +2,6 @@ spring:
   config:
     import:
       - optional:file:.env[.properties]
-      - optional:file:../.env[.properties]
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -42,3 +41,13 @@ ai:
   service:
     url: ${AI_SERVICE_URL:http://localhost:8000}
     api-key: ${AI_SERVICE_API_KEY:}
+
+maps:
+  vietmap:
+    api-key: ${VIETMAP_API_KEY:}
+    max-points: ${VIETMAP_MATRIX_MAX_POINTS:10}
+  osm:
+    photon-url: ${OSM_PHOTON_URL:https://photon.komoot.io/api/}
+    routing-url: ${OSM_ROUTING_URL:https://routing.openstreetmap.de/routed-car}
+  require-https: ${MAPS_REQUIRE_HTTPS:false}
+  trust-proxy: ${MAPS_TRUST_PROXY:false}

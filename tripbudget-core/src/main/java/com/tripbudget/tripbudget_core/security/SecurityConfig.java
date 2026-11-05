@@ -16,6 +16,8 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import com.tripbudget.tripbudget_core.maps.web.MapsRequestFilter;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -29,6 +31,7 @@ public class SecurityConfig {
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
     private final PolicyAcceptanceFilter policyAcceptanceFilter;
+    private final MapsRequestFilter mapsRequestFilter;
 
     @Value("${security.jwt.secret}")
     private String jwtSecret;
@@ -37,12 +40,14 @@ public class SecurityConfig {
             RedisSessionValidationFilter redisSessionValidationFilter,
             CustomAuthenticationEntryPoint authenticationEntryPoint,
             CustomAccessDeniedHandler accessDeniedHandler,
-            PolicyAcceptanceFilter policyAcceptanceFilter
+            PolicyAcceptanceFilter policyAcceptanceFilter,
+            MapsRequestFilter mapsRequestFilter
     ) {
         this.redisSessionValidationFilter = redisSessionValidationFilter;
         this.customAuthenticationEntryPoint = authenticationEntryPoint;
         this.customAccessDeniedHandler = accessDeniedHandler;
         this.policyAcceptanceFilter = policyAcceptanceFilter;
+        this.mapsRequestFilter = mapsRequestFilter;
     }
 
     @Bean
@@ -77,8 +82,16 @@ public class SecurityConfig {
                         BearerTokenAuthenticationFilter.class
                 )
                 .addFilterAfter(policyAcceptanceFilter, RedisSessionValidationFilter.class)
+                .addFilterAfter(mapsRequestFilter, AuthorizationFilter.class)
 
                 .build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<MapsRequestFilter> mapsFilterRegistration() {
+        var registration = new FilterRegistrationBean<>(mapsRequestFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
