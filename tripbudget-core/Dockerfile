@@ -20,7 +20,6 @@ USER appuser
 
 COPY --from=build /app/target/*.jar app.jar
 
-ENV PORT=8081
 EXPOSE 8081
 
 # Optimize JVM memory allocation for container with limited RAM 
