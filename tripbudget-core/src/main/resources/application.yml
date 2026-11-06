@@ -24,6 +24,11 @@ spring:
         default_schema: trip_core
     open-in-view: false
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
 security:
   jwt:
     secret: ${JWT_ACCESS_SECRET}
@@ -36,11 +41,6 @@ server:
   servlet:
     context-path: ${API_BASE_PATH:/api}
   port: ${PORT:8081}
-
-ai:
-  service:
-    url: ${AI_SERVICE_URL:http://localhost:8000}
-    api-key: ${AI_SERVICE_API_KEY:}
 
 maps:
   vietmap:

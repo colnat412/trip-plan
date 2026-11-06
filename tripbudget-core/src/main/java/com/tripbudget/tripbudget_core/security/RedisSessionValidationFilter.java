@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
 @Component
 public class RedisSessionValidationFilter extends OncePerRequestFilter {
@@ -63,8 +64,25 @@ public class RedisSessionValidationFilter extends OncePerRequestFilter {
                 reject(response, "Unauthorized");
                 return;
             }
-
-
+            String path = request.getServletPath();
+            if (path.startsWith("/auth/") || path.startsWith("/users/") || path.equals("/uploads")) {
+                Instant expiresAt = jwtAuth.getToken().getExpiresAt();
+                if (expiresAt != null && !Instant.now().isBefore(expiresAt)) {
+                    reject(response, "Unauthorized");
+                    return;
+                }
+                String sessionUserId;
+                try {
+                    sessionUserId = objectMapper.readTree(sessionRaw).path("userId").asString();
+                } catch (RuntimeException exception) {
+                    reject(response, "Unauthorized");
+                    return;
+                }
+                if (!jwtAuth.getToken().getSubject().equals(sessionUserId)) {
+                    reject(response, "Unauthorized");
+                    return;
+                }
+            }
         }
 
         filterChain.doFilter(request, response);

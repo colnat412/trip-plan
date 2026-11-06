@@ -21,6 +21,12 @@ public class PolicyAcceptanceFilter extends OncePerRequestFilter {
     public PolicyAcceptanceFilter(UserRepository users) { this.users = users; }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.startsWith("/auth/") || path.equals("/users/me/policies/accept");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         var authentication = SecurityContextHolder.getContext().getAuthentication();

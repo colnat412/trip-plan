@@ -63,7 +63,7 @@ public class AiPlanService {
             request.setDestination(trip.getDestination());
         }
         
-        JsonNode responseJson = aiPlanClient.generatePlan(request);
+        JsonNode responseJson = aiPlanClient.generatePlan(currentUserId, request);
 
         for (JsonNode dayNode : responseJson.get("days")) {
             int dayNumber = dayNode.get("dayNumber").asInt();

@@ -40,7 +40,7 @@ public class PlanTemplateSummaryRepository {
     private static final String FROM_TEMPLATES = """
             FROM trip_core.plan_templates template
             JOIN trip_core.trips source_trip ON source_trip.id = template.source_trip_id
-            LEFT JOIN public.users author ON author.id = template.author_id
+            LEFT JOIN trip_core.users author ON author.id = template.author_id
             """;
 
     private static final String SEARCH_FILTERS = """
