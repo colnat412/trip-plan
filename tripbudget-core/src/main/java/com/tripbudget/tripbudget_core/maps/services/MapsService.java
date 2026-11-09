@@ -1,6 +1,7 @@
 package com.tripbudget.tripbudget_core.maps.services;
 
 import com.tripbudget.tripbudget_core.maps.clients.OsmMapsClient;
+import com.tripbudget.tripbudget_core.maps.cache.MapsResponseCache;
 import com.tripbudget.tripbudget_core.maps.clients.VietmapClient;
 import com.tripbudget.tripbudget_core.maps.dtos.request.MapDistanceRequest;
 import com.tripbudget.tripbudget_core.maps.dtos.response.MapCoordinatesResponse;
@@ -36,18 +37,20 @@ public class MapsService {
     private final VietmapClient vietmapClient;
     private final OsmMapsClient osmMapsClient;
     private final MapsBudget mapsBudget;
+    private final MapsResponseCache responseCache;
     private final Clock clock;
     private volatile long retryVietmapAt;
 
     @Autowired
-    public MapsService(VietmapClient vietmapClient, OsmMapsClient osmMapsClient, MapsBudget mapsBudget) {
-        this(vietmapClient, osmMapsClient, mapsBudget, Clock.systemUTC());
+    public MapsService(VietmapClient vietmapClient, OsmMapsClient osmMapsClient, MapsBudget mapsBudget, MapsResponseCache responseCache) {
+        this(vietmapClient, osmMapsClient, mapsBudget, responseCache, Clock.systemUTC());
     }
 
-    MapsService(VietmapClient vietmapClient, OsmMapsClient osmMapsClient, MapsBudget mapsBudget, Clock clock) {
+    MapsService(VietmapClient vietmapClient, OsmMapsClient osmMapsClient, MapsBudget mapsBudget, MapsResponseCache responseCache, Clock clock) {
         this.vietmapClient = vietmapClient;
         this.osmMapsClient = osmMapsClient;
         this.mapsBudget = mapsBudget;
+        this.responseCache = responseCache;
         this.clock = clock;
     }
 
@@ -60,10 +63,10 @@ public class MapsService {
         mapsBudget.consume(currentUserId, 0);
         String searchLanguage = normalizeLanguage(language);
 
-        return withFallback(
+        return responseCache.search(query, searchLanguage, regionsOnly, () -> withFallback(
                 () -> searchVietmap(query, regionsOnly),
                 () -> new MapSearchResponse(osmMapsClient.search(query, searchLanguage, regionsOnly), "osm")
-        );
+        ));
     }
 
     public MapLocationResultResponse location(Long currentUserId, String input, String language) {
@@ -107,10 +110,10 @@ public class MapsService {
         }
         mapsBudget.consume(currentUserId, origins.size() * destinations.size());
 
-        return withFallback(
+        return responseCache.distance(origins, destinations, language, destinationContext, () -> withFallback(
                 () -> calculateMatrix(origins, destinations, language, destinationContext, "vietmap"),
                 () -> calculateMatrix(origins, destinations, language, destinationContext, "osm")
-        );
+        ));
     }
 
     private MapSearchResponse searchVietmap(String query, boolean regionsOnly) {
@@ -122,6 +125,11 @@ public class MapsService {
     }
 
     private MapLocationResponse findLocation(String address, String language, String source) {
+        return responseCache.location(address, language, source,
+                () -> new MapLocationResultResponse(resolveProviderLocation(address, language, source))).location();
+    }
+
+    private MapLocationResponse resolveProviderLocation(String address, String language, String source) {
         MapCoordinatesResponse coordinates;
         if ("vietmap".equals(source)) {
             coordinates = vietmapClient.geocode(address);
