@@ -132,8 +132,8 @@ public class PlanService {
 
         Map<Long, BigDecimal> activeExpenseAmounts = Collections.emptyMap();
         if (!expenseIds.isEmpty()) {
-            activeExpenseAmounts = expenseRepository.findAllById(expenseIds).stream()
-                    .filter(e -> !e.isDel() && e.getStatus() != ExpenseStatus.DELETED)
+            activeExpenseAmounts = expenseRepository.findAllByIdInAndTripIdAndIsDelFalse(expenseIds, tripId).stream()
+                    .filter(e -> e.getStatus() != ExpenseStatus.DELETED)
                     .collect(Collectors.toMap(ExpenseEntity::getId, ExpenseEntity::getAmount));
         }
 
@@ -230,8 +230,8 @@ public class PlanService {
 
         Map<Long, BigDecimal> activeExpenseAmounts = Collections.emptyMap();
         if (!expenseIds.isEmpty()) {
-            activeExpenseAmounts = expenseRepository.findAllById(expenseIds).stream()
-                    .filter(e -> !e.isDel() && e.getStatus() != ExpenseStatus.DELETED)
+            activeExpenseAmounts = expenseRepository.findAllByIdInAndTripIdAndIsDelFalse(expenseIds, tripId).stream()
+                    .filter(e -> e.getStatus() != ExpenseStatus.DELETED)
                     .collect(Collectors.toMap(ExpenseEntity::getId, ExpenseEntity::getAmount));
         }
 
@@ -245,26 +245,6 @@ public class PlanService {
                 BigDecimal actualSpent = activitySpentMap.get(act.getId());
                 if (actualSpent == null && act.getExpenseId() != null) {
                     actualSpent = activeExpenseAmounts.get(act.getExpenseId());
-                }
-
-                if (act.getExpenseId() != null && !activeExpenseAmounts.containsKey(act.getExpenseId()) && (actualSpent == null || actualSpent.compareTo(BigDecimal.ZERO) == 0)) {
-                    act.setExpenseId(null);
-                    if (act.getStatus() == ActivityStatus.COMPLETED) {
-                        act.updateStatus(ActivityStatus.PLANNED);
-                    }
-                    planActivityRepository.save(act);
-                } else if (actualSpent != null && actualSpent.compareTo(BigDecimal.ZERO) > 0) {
-                    if (act.getEstimatedCost() != null && actualSpent.compareTo(act.getEstimatedCost()) >= 0) {
-                        if (act.getStatus() != ActivityStatus.COMPLETED) {
-                            act.updateStatus(ActivityStatus.COMPLETED);
-                            planActivityRepository.save(act);
-                        }
-                    } else {
-                        if (act.getStatus() == ActivityStatus.COMPLETED && act.getEstimatedCost() != null && act.getEstimatedCost().compareTo(BigDecimal.ZERO) > 0) {
-                            act.updateStatus(ActivityStatus.PLANNED);
-                            planActivityRepository.save(act);
-                        }
-                    }
                 }
 
                 actResponses.add(PlanActivityResponse.from(act, hashidsService, actualSpent));
@@ -379,8 +359,8 @@ public class PlanService {
 
         Map<Long, BigDecimal> activeExpenseAmounts = Collections.emptyMap();
         if (!expenseIds.isEmpty()) {
-            activeExpenseAmounts = expenseRepository.findAllById(expenseIds).stream()
-                    .filter(e -> !e.isDel() && e.getStatus() != ExpenseStatus.DELETED)
+            activeExpenseAmounts = expenseRepository.findAllByIdInAndTripIdAndIsDelFalse(expenseIds, tripId).stream()
+                    .filter(e -> e.getStatus() != ExpenseStatus.DELETED)
                     .collect(Collectors.toMap(ExpenseEntity::getId, ExpenseEntity::getAmount));
         }
 
@@ -444,7 +424,8 @@ public class PlanService {
         if (orderIndex == null) {
             List<PlanActivityEntity> currentActivities = planActivityRepository
                     .findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(dayId);
-            orderIndex = currentActivities.size();
+            orderIndex = currentActivities.stream()
+                    .mapToInt(PlanActivityEntity::getOrderIndex).max().orElse(-1) + 1;
         }
 
         PlanActivityEntity activity = PlanActivityEntity.create(
@@ -505,6 +486,12 @@ public class PlanService {
         Long expenseId = null;
         if (request.expenseId() != null && !request.expenseId().isBlank()) {
             expenseId = hashidsService.decode(request.expenseId());
+            ExpenseEntity expense = expenseRepository.findByIdAndTripIdAndIsDelFalse(expenseId, tripId)
+                    .filter(candidate -> candidate.getStatus() != ExpenseStatus.DELETED)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found in this trip"));
+            if (expense.getActivityId() != null && !expense.getActivityId().equals(activityId)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expense belongs to another activity");
+            }
         }
 
         StringBuilder changes = new StringBuilder();
@@ -554,6 +541,43 @@ public class PlanService {
         return PlanActivityResponse.from(activity, hashidsService, actualSpent);
     }
 
+    /** Joins the caller's expense transaction; never infers execution status from spending. */
+    @Transactional
+    public void linkExpenseToActivity(Long currentUserId, Long tripId, Long activityId, Long expenseId) {
+        getActiveMemberTrip(tripId, currentUserId);
+        PlanActivityEntity activity = planActivityRepository.findByIdAndTripIdAndIsDelFalse(activityId, tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found in this trip"));
+        planDayRepository.findByIdAndTripIdAndIsDelFalse(activity.getDay().getId(), tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan day not found"));
+        expenseRepository.findByIdAndTripIdAndIsDelFalse(expenseId, tripId)
+                .filter(expense -> expense.getStatus() != ExpenseStatus.DELETED)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found in this trip"));
+        activity.setExpenseId(expenseId);
+        publishPublicTripChanged(tripId);
+    }
+
+    @Transactional
+    public void reorderDayActivities(Long currentUserId, Long tripId, Long dayId, ReorderDayActivitiesRequest request) {
+        getActiveMemberTrip(tripId, currentUserId);
+        assertCanEditPlan(tripId, currentUserId);
+        // Serialize route saves for this day; validate the entire set before changing any entity.
+        planDayRepository.findForUpdate(dayId, tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan day not found"));
+        List<PlanActivityEntity> activities = planActivityRepository.findAllByDayIdSorted(dayId);
+        Map<Long, PlanActivityEntity> activitiesById = activities.stream()
+                .collect(Collectors.toMap(PlanActivityEntity::getId, Function.identity()));
+        List<Long> orderedIds = request.activityIds().stream().map(hashidsService::decode).toList();
+        Set<Long> uniqueIds = new HashSet<>(orderedIds);
+        if (uniqueIds.size() != orderedIds.size() || !uniqueIds.equals(activitiesById.keySet())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Day activities changed or the route is incomplete. Reload before saving.");
+        }
+        for (int index = 0; index < orderedIds.size(); index++) {
+            activitiesById.get(orderedIds.get(index)).reorder(index);
+        }
+        publishPublicTripChanged(tripId);
+    }
+
     @Transactional
     public PlanActivityResponse updateActivityStatus(Long currentUserId, Long tripId, Long activityId, ActivityStatus status) {
         getActiveMemberTrip(tripId, currentUserId);
@@ -588,6 +612,7 @@ public class PlanService {
         }
         if (activity.getExpenseId() != null) {
             return expenseRepository.findByIdAndTripIdAndIsDelFalse(activity.getExpenseId(), tripId)
+                    .filter(expense -> expense.getStatus() != ExpenseStatus.DELETED)
                     .map(ExpenseEntity::getAmount)
                     .orElse(null);
         }

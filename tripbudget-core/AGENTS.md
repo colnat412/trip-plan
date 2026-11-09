@@ -115,3 +115,16 @@
 - Do not restore public references or run legacy NestJS against the migrated DB. Other deployments must apply V9 manually before starting this code; Hibernate remains validate and Flyway is not automatically enabled.
 - scripts/test-trip-core-schema.sh checks populated fixtures, identities/FKs/defaults/views/grants, repeated execution and atomic rejection/rollback for target collisions. scripts/test-single-backend.sh: 32 pass, 0 skip, with all auth/upload fixtures in trip_core. No smoke tests or destructive application DB fixtures.
 - See docs/single-schema.vi.md for rollout, verification, protected backup location and rollback procedure. General rule against unrequested live migrations remains; this explicit schema migration authorization does not authorize unrelated data/schema changes.
+
+## AI prompt resources (2026-11-06)
+
+- AiService loads prompts/trip-plan.txt and prompts/receipt-scan.txt from the classpath at construction. Both UTF-8 resources must exist under src/main/resources/prompts and be included with source/deployment; do not omit them during cleanup or migration.
+- The two missing resources were restored from legacy Python prompt literals with AST extraction (without executing the legacy service), retaining whitespace, JSON examples, six categories and Java template placeholders. No provider/model/business changes.
+- AiServiceTest constructs the real service using classpath resources and mocks only external collaborators, verifying plan interpolation and receipt payload. Clean tests: 9 pass on the current checkout, no database/provider calls. Verify both resources in the executable JAR after package; skip smoke tests.
+
+## Plan consistency (2026-11-09)
+
+- User explicitly chose activity.status over spending-derived completion. Reads and expense create/update/delete must not infer status from money.
+- ExpenseService calls PlanService.linkExpenseToActivity in its transaction; validate same-trip, non-deleted activity/day/expense. Plan fallback reads are trip-scoped. Preserve splits/receipt behavior.
+- Batch PUT /trip/{tripId}/plan/days/{dayId}/activities/order accepts complete unique IDs, validates before mutation, then changes orderIndex only. Queries prioritize orderIndex; DynamicUpdate avoids writing unrelated activity fields.
+- scripts/test-plan.sh runs guarded disposable PostgreSQL template_test with real JPA/transaction rollback tests and unit validation/service tests. No application DB, providers or smoke tests. Flow/tradeoffs/limits: ../../trip-budget-web/docs/plan-consistency.vi.md.

@@ -34,6 +34,8 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long>, J
 
     Optional<ExpenseEntity> findByIdAndIsDelFalse(Long id);
 
+    List<ExpenseEntity> findAllByIdInAndTripIdAndIsDelFalse(java.util.Collection<Long> ids, Long tripId);
+
     @Query("""
             SELECT COALESCE(SUM(expense.amount), 0)
             FROM ExpenseEntity expense

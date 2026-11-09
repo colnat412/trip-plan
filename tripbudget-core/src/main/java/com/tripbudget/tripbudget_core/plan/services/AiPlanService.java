@@ -75,7 +75,7 @@ public class AiPlanService {
                     ));
 
             List<PlanActivityEntity> existing = planActivityRepository.findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(planDay.getId());
-            int orderIndex = existing.size();
+            int orderIndex = existing.stream().mapToInt(PlanActivityEntity::getOrderIndex).max().orElse(-1) + 1;
 
             if (dayNode.has("activities") && dayNode.get("activities").isArray()) {
                 for (JsonNode actNode : dayNode.get("activities")) {

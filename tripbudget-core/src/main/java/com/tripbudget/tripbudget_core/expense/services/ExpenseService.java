@@ -14,7 +14,7 @@ import com.tripbudget.tripbudget_core.expense.enums.SplitType;
 import com.tripbudget.tripbudget_core.expense.repositories.ExpenseRepository;
 import com.tripbudget.tripbudget_core.expense.specifications.ExpenseSpecifications;
 import com.tripbudget.tripbudget_core.plan.entities.PlanActivityEntity;
-import com.tripbudget.tripbudget_core.plan.enums.ActivityStatus;
+import com.tripbudget.tripbudget_core.plan.services.PlanService;
 import com.tripbudget.tripbudget_core.plan.repositories.PlanActivityRepository;
 import com.tripbudget.tripbudget_core.trip.dtos.response.PageResponse;
 import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
@@ -55,6 +55,7 @@ public class ExpenseService {
     private final UserRepository userRepository;
     private final HashidsService hashidsService;
     private final ExpenseReceiptService receiptService;
+    private final PlanService planService;
 
     @Transactional
     public ExpenseResponse createExpense(Long currentUserId, Long tripId, CreateExpenseRequest req) {
@@ -73,6 +74,7 @@ public class ExpenseService {
         Long activityId = (req.activityId() != null && !req.activityId().isBlank())
                 ? hashidsService.decode(req.activityId())
                 : null;
+        validateActivityLink(tripId, activityId);
 
         ExpenseEntity expense = ExpenseEntity.create(
                 currentUserId,
@@ -93,6 +95,9 @@ public class ExpenseService {
 
         receiptService.updateReceipt(currentUserId, expense, req.receiptUploadId(), false, req.receiptUrl());
         ExpenseEntity savedExpense = expenseRepository.save(expense);
+        if (activityId != null) {
+            planService.linkExpenseToActivity(currentUserId, tripId, activityId, savedExpense.getId());
+        }
         return mapToResponse(savedExpense);
     }
 
@@ -204,6 +209,7 @@ public class ExpenseService {
         Long activityId = (req.activityId() != null && !req.activityId().isBlank())
                 ? hashidsService.decode(req.activityId())
                 : expense.getActivityId();
+        validateActivityLink(tripId, activityId);
 
         expense.update(
                 payerId,
@@ -228,6 +234,14 @@ public class ExpenseService {
 
         receiptService.updateReceipt(currentUserId, expense, req.receiptUploadId(), req.removeReceipt(), req.receiptUrl());
         ExpenseEntity savedExpense = expenseRepository.save(expense);
+        for (PlanActivityEntity linked : planActivityRepository.findAllByExpenseIdAndTripIdAndIsDelFalse(expenseId, tripId)) {
+            if (!linked.getId().equals(activityId)) {
+                linked.setExpenseId(null);
+            }
+        }
+        if (activityId != null) {
+            planService.linkExpenseToActivity(currentUserId, tripId, activityId, savedExpense.getId());
+        }
         return mapToResponse(savedExpense);
     }
 
@@ -244,33 +258,21 @@ public class ExpenseService {
         expense.deleteExpense();
         expenseRepository.save(expense);
 
-        if (expense.getActivityId() != null) {
-            planActivityRepository.findByIdAndTripIdAndIsDelFalse(expense.getActivityId(), tripId).ifPresent(activity -> {
-                BigDecimal remainingSpent = expenseRepository.sumAmountByActivityId(tripId, activity.getId());
-                if (remainingSpent == null || remainingSpent.compareTo(BigDecimal.ZERO) == 0) {
-                    activity.setExpenseId(null);
-                    if (activity.getStatus() == ActivityStatus.COMPLETED) {
-                        activity.updateStatus(ActivityStatus.PLANNED);
-                    }
-                } else if (activity.getEstimatedCost() != null && remainingSpent.compareTo(activity.getEstimatedCost()) < 0) {
-                    if (activity.getStatus() == ActivityStatus.COMPLETED) {
-                        activity.updateStatus(ActivityStatus.PLANNED);
-                    }
-                }
-                planActivityRepository.save(activity);
-            });
-        }
-
-        List<PlanActivityEntity> linkedActivities = planActivityRepository.findAllByExpenseIdAndIsDelFalse(expenseId);
+        List<PlanActivityEntity> linkedActivities = planActivityRepository
+                .findAllByExpenseIdAndTripIdAndIsDelFalse(expenseId, tripId);
         for (PlanActivityEntity activity : linkedActivities) {
-            if (expense.getActivityId() != null && expense.getActivityId().equals(activity.getId())) {
-                continue; // already handled above
-            }
             activity.setExpenseId(null);
-            if (activity.getStatus() == ActivityStatus.COMPLETED) {
-                activity.updateStatus(ActivityStatus.PLANNED);
-            }
-            planActivityRepository.save(activity);
+        }
+    }
+
+    private void validateActivityLink(Long tripId, Long activityId) {
+        if (activityId == null) {
+            return;
+        }
+        PlanActivityEntity activity = planActivityRepository.findByIdAndTripIdAndIsDelFalse(activityId, tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found in this trip"));
+        if (activity.getDay().isDel()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan day not found");
         }
     }
 

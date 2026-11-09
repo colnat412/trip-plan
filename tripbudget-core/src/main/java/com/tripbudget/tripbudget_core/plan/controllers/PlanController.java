@@ -155,6 +155,20 @@ public class PlanController {
         ));
     }
 
+    @PutMapping("/days/{dayId}/activities/order")
+    public ResponseEntity<ApiResponse<Void>> reorderDayActivities(
+            @PathVariable("tripId") String tripIdHash,
+            @PathVariable("dayId") String dayIdHash,
+            @Valid @RequestBody ReorderDayActivitiesRequest request,
+            @CurrentUser CurrentUserDto user
+    ) {
+        Long currentUserId = user.id();
+        Long tripId = hashidsService.decode(tripIdHash);
+        Long dayId = hashidsService.decode(dayIdHash);
+        planService.reorderDayActivities(currentUserId, tripId, dayId, request);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Day route updated successfully", null));
+    }
+
     @PostMapping("/days/{dayId}/activities")
     public ResponseEntity<ApiResponse<PlanActivityResponse>> createActivity(
             @PathVariable("tripId") String tripIdHash,

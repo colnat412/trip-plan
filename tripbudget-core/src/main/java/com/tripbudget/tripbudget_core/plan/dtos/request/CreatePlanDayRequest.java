@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.plan.dtos.request;
 
+import jakarta.validation.constraints.Size;
+
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -12,6 +14,7 @@ public record CreatePlanDayRequest(
 
         LocalDate planDate,
 
+        @Size(max = 255)
         String title,
 
         String note

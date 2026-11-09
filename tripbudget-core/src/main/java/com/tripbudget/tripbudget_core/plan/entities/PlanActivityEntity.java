@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalTime;
 
 @Getter
+@org.hibernate.annotations.DynamicUpdate
 @Entity
 @Table(
         schema = "trip_core",
@@ -129,6 +130,13 @@ public class PlanActivityEntity extends BaseEntity {
         if (expenseId != null) {
             this.expenseId = expenseId;
         }
+    }
+
+    public void reorder(int orderIndex) {
+        if (orderIndex < 0) {
+            throw new IllegalArgumentException("Order index must not be negative");
+        }
+        this.orderIndex = orderIndex;
     }
 
     public void updateStatus(ActivityStatus newStatus) {
