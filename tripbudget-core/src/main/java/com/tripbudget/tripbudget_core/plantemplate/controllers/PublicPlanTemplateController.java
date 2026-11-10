@@ -25,12 +25,13 @@ public class PublicPlanTemplateController {
     public ResponseEntity<ApiResponse<PlanTemplateListResponse>> listTemplates(
             @RequestParam(defaultValue = "") String search,
             @RequestParam(required = false) Integer duration,
+            @RequestParam(required = false) Integer minDuration,
             @RequestParam(required = false) String tag,
             @RequestParam(defaultValue = "recent") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size
     ) {
-        PlanTemplateListResponse response = queryService.listPublicTemplates(search, duration, tag, sort, page, size);
+        PlanTemplateListResponse response = queryService.listPublicTemplates(search, duration, minDuration, tag, sort, page, size);
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Templates", response));
     }
 

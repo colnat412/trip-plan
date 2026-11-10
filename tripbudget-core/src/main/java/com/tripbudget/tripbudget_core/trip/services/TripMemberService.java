@@ -74,7 +74,7 @@ public class TripMemberService {
         UserEntity targetUser = userRepository.findByEmail(searchEmail)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "User with email '" + req.email() + "' not found. Please ask them to register in TripBudget first."
+                        "User with email '" + req.email() + "' not found. Please ask them to register in Vi Vu first."
                 ));
 
         if (targetUser.getId().equals(currentUserId)) {

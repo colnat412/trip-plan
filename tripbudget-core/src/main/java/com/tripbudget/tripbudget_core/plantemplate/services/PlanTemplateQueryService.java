@@ -32,11 +32,15 @@ public class PlanTemplateQueryService {
     private final PlanTemplateAccessService accessService;
 
     public PlanTemplateListResponse listPublicTemplates(
-            String search, Integer duration, String tag, String sort, int page, int size
+            String search, Integer duration, Integer minDuration, String tag, String sort, int page, int size
     ) {
         validateFilters(search, page, size);
+        if ((duration != null && duration < 1) || (minDuration != null && minDuration < 1)
+                || (duration != null && minDuration != null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_TEMPLATE_FILTER");
+        }
         PlanTemplateSearchCriteria criteria = new PlanTemplateSearchCriteria(
-                null, search, duration, tag, "popular".equals(sort), PageRequest.of(page, size)
+                null, search, duration, minDuration, tag, "popular".equals(sort), PageRequest.of(page, size)
         );
         Page<PlanTemplateSummary> summaries = summaryRepository.search(criteria);
         List<PlanTemplateCardResponse> cards = summaries.getContent().stream()
@@ -47,7 +51,7 @@ public class PlanTemplateQueryService {
     public PlanTemplateListResponse listMyTemplates(Long currentUserId, int page, int size) {
         validateFilters("", page, size);
         PlanTemplateSearchCriteria criteria = new PlanTemplateSearchCriteria(
-                currentUserId, "", null, null, false, PageRequest.of(page, size)
+                currentUserId, "", null, null, null, false, PageRequest.of(page, size)
         );
         Page<PlanTemplateSummary> summaries = summaryRepository.search(criteria);
         List<PlanTemplateCardResponse> cards = summaries.getContent().stream()

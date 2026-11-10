@@ -53,6 +53,7 @@ public class PlanTemplateSummaryRepository {
                    OR LOWER(template.title) LIKE LOWER(:searchPattern) ESCAPE '!'
                    OR LOWER(template.destination) LIKE LOWER(:searchPattern) ESCAPE '!')
               AND (:durationDays IS NULL OR template.duration_days = :durationDays)
+              AND (:minDurationDays IS NULL OR template.duration_days >= :minDurationDays)
               AND (:tag IS NULL OR :tag = ANY(string_to_array(template.tags, ',')))
             """;
 
@@ -101,6 +102,7 @@ public class PlanTemplateSummaryRepository {
                 .addValue("authorId", criteria.authorId(), Types.BIGINT)
                 .addValue("searchPattern", searchPattern(criteria.search()), Types.VARCHAR)
                 .addValue("durationDays", criteria.durationDays(), Types.INTEGER)
+                .addValue("minDurationDays", criteria.minDurationDays(), Types.INTEGER)
                 .addValue("tag", blankToNull(criteria.tag()), Types.VARCHAR)
                 .addValue("pageSize", criteria.pageable().getPageSize(), Types.INTEGER)
                 .addValue("offset", criteria.pageable().getOffset(), Types.BIGINT);

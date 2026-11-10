@@ -41,7 +41,7 @@ public class PolicyAcceptanceFilter extends OncePerRequestFilter {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-                response.getWriter().write("{\"status\":403,\"code\":\"POLICY_ACCEPTANCE_REQUIRED\",\"message\":\"Accept the policies before using Trip Plan\",\"data\":null}");
+                response.getWriter().write("{\"status\":403,\"code\":\"POLICY_ACCEPTANCE_REQUIRED\",\"message\":\"Accept the policies before using Vi Vu\",\"data\":null}");
                 return;
             }
         }

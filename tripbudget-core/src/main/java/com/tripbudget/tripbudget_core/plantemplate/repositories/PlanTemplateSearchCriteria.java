@@ -6,6 +6,7 @@ public record PlanTemplateSearchCriteria(
         Long authorId,
         String search,
         Integer durationDays,
+        Integer minDurationDays,
         String tag,
         boolean popularFirst,
         Pageable pageable

@@ -11,8 +11,8 @@
 	<groupId>com.tripbudget</groupId>
 	<artifactId>tripbudget-co</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>Vi Vu Core</name>
+	<description>Vi Vu trip planning and shared expenses</description>
 	<url/>
 	<licenses>
 		<license/>

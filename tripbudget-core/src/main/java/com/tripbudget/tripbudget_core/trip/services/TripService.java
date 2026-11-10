@@ -1,6 +1,7 @@
 package com.tripbudget.tripbudget_core.trip.services;
 
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
+import com.tripbudget.tripbudget_core.plan.services.PlanService;
 import com.tripbudget.tripbudget_core.trip.dtos.request.CreateTripRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.request.GetAllTripsRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.request.InitialMemberRequest;
@@ -31,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.List;
 import java.util.Set;
 
@@ -42,19 +44,22 @@ public class TripService {
     private final HashidsService hashidsService;
     private final ApplicationEventPublisher eventPublisher;
     private final TripCoverService tripCoverService;
+    private final PlanService planService;
 
     public TripService(
             TripRepository tripRepository,
             TripMemberRepository tripMemberRepository,
             HashidsService hashidsService,
             ApplicationEventPublisher eventPublisher,
-            TripCoverService tripCoverService
+            TripCoverService tripCoverService,
+            PlanService planService
     ) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
         this.hashidsService = hashidsService;
         this.eventPublisher = eventPublisher;
         this.tripCoverService = tripCoverService;
+        this.planService = planService;
     }
 
     @Transactional
@@ -153,7 +158,11 @@ public class TripService {
             );
         }
 
-        if(dto.getEndDate() != null && dto.getStartDate() != null && dto.getEndDate().isBefore(dto.getStartDate()))
+        var startDate = dto.getStartDate() != null ? dto.getStartDate() : trip.getStartDate();
+        var endDate = dto.getEndDate() != null ? dto.getEndDate() : trip.getEndDate();
+        boolean datesChanged = !Objects.equals(startDate, trip.getStartDate())
+                || !Objects.equals(endDate, trip.getEndDate());
+        if(startDate != null && endDate != null && endDate.isBefore(startDate))
         {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -179,6 +188,8 @@ public class TripService {
                 dto.getBaseCurrency(),
                 dto.getStatus()
         );
+
+        if (datesChanged) planService.synchronizeTripDates(trip);
 
         eventPublisher.publishEvent(PublicTripChangedEvent.of(tripId));
         return TripResponse.from(trip, hashidsService);

@@ -31,7 +31,7 @@ public class OtpMailService {
     ) throws IOException {
         this.user = user;
         this.password = password;
-        this.from = from.isBlank() ? "\"TripBudget\" <" + user + ">" : from;
+        this.from = from.isBlank() ? "\"Vi Vu\" <" + user + ">" : from;
         this.template = new ClassPathResource("templates/otp-email.html").getContentAsString(StandardCharsets.UTF_8);
         sender = new JavaMailSenderImpl();
         sender.setHost(host);
@@ -55,7 +55,7 @@ public class OtpMailService {
             var helper = new MimeMessageHelper(message, StandardCharsets.UTF_8.name());
             helper.setFrom(from);
             helper.setTo(to);
-            helper.setSubject("[TripBudget] Mã xác thực tài khoản / Verification Code: " + otp);
+            helper.setSubject("[Vi Vu] Mã xác thực tài khoản / Verification Code: " + otp);
             helper.setText(template.replace("{{userName}}", userName).replace("{{otp}}", otp), true);
             sender.send(message);
             return true;

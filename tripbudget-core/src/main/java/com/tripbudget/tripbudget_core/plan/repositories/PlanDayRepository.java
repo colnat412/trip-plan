@@ -24,6 +24,8 @@ public interface PlanDayRepository extends JpaRepository<PlanDayEntity, Long> {
     @Query("SELECT day FROM PlanDayEntity day WHERE day.id = :dayId AND day.tripId = :tripId AND day.isDel = false")
     Optional<PlanDayEntity> findForUpdate(@Param("dayId") Long dayId, @Param("tripId") Long tripId);
 
+    List<PlanDayEntity> findAllByTripIdOrderByDayNumberAsc(Long tripId);
+
     boolean existsByTripIdAndIsDelFalse(Long tripId);
 }
 
