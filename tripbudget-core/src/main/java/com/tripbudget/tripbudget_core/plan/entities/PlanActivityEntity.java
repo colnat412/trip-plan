@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.UUID;
 
 @Getter
 @org.hibernate.annotations.DynamicUpdate
@@ -64,6 +65,12 @@ public class PlanActivityEntity extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "image_upload_id")
+    private UUID imageUploadId;
+
+    @Column(name = "image_url", length = 2048)
+    private String imageUrl;
+
     @Column(name = "expense_id")
     private Long expenseId;
 
@@ -94,6 +101,11 @@ public class PlanActivityEntity extends BaseEntity {
         act.orderIndex = orderIndex != null ? orderIndex : 0;
         act.note = note != null && !note.isBlank() ? note.trim() : null;
         return act;
+    }
+
+    public void updateImage(UUID uploadId, String url) {
+        this.imageUploadId = uploadId;
+        this.imageUrl = url;
     }
 
     public void updateDetails(

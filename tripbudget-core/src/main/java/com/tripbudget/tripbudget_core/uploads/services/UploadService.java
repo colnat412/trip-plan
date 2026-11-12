@@ -33,7 +33,7 @@ public class UploadService {
         if (purpose == null || file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid image or purpose");
         }
-        if (file.getSize() >= MAX_BYTES) {
+        if (file.getSize() > MAX_BYTES) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File too large");
         }
         byte[] bytes;
@@ -49,6 +49,7 @@ public class UploadService {
         String prefix = switch (purpose) {
             case PROFILE_AVATAR -> "tripbudget/profile-avatars";
             case TRIP_COVER -> "tripbudget/trip-covers";
+            case ACTIVITY_IMAGE -> "tripbudget/activity-images";
             case EXPENSE_RECEIPT -> "tripbudget/expense-receipts";
         };
         var result = cloudinary.upload(bytes, prefix + "/" + uploadId);

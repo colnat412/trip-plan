@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.UUID;
 
 public record UpdateActivityRequest(
         @NotBlank(message = "Title is required")
@@ -29,7 +30,9 @@ public record UpdateActivityRequest(
         Integer orderIndex,
         String note,
         String expenseId,
-        String targetDayId
+        String targetDayId,
+        UUID imageUploadId,
+        boolean removeImage
 ) {
     @AssertTrue(message = "End time must be at or after start time on the same day")
     @JsonIgnore

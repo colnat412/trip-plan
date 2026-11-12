@@ -4,6 +4,8 @@ import com.tripbudget.tripbudget_core.plan.entities.PlanActivityEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,6 +15,14 @@ import java.util.Optional;
 
 @Repository
 public interface PlanActivityRepository extends JpaRepository<PlanActivityEntity, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM PlanActivityEntity a WHERE a.id = :id AND a.tripId = :tripId AND a.isDel = false AND a.day.isDel = false")
+    Optional<PlanActivityEntity> findActiveForUpdate(@Param("id") Long id, @Param("tripId") Long tripId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM PlanActivityEntity a WHERE a.day.id = :dayId AND a.isDel = false ORDER BY a.id")
+    List<PlanActivityEntity> findAllActiveForUpdateByDayId(@Param("dayId") Long dayId);
 
     List<PlanActivityEntity> findAllByTripIdAndIsDelFalseOrderByOrderIndexAsc(Long tripId);
 

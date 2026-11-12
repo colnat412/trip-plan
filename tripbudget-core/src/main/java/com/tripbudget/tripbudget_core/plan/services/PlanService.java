@@ -1,6 +1,8 @@
 package com.tripbudget.tripbudget_core.plan.services;
 
 import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
+import com.tripbudget.tripbudget_core.uploads.enums.UploadPurpose;
+import com.tripbudget.tripbudget_core.uploads.services.UploadAttachmentService;
 
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
@@ -48,6 +50,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PlanService {
 
+    private final UploadAttachmentService uploads;
     private final TripPermissionService permissions;
 
     private final PlanDayRepository planDayRepository;
@@ -421,8 +424,9 @@ public class PlanService {
         day.markDeleted();
 
         List<PlanActivityEntity> activities = planActivityRepository
-                .findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(dayId);
+                .findAllActiveForUpdateByDayId(dayId);
         for (PlanActivityEntity act : activities) {
+            updateImage(currentUserId, act, null, true);
             act.markDeleted();
         }
         publishPublicTripChanged(tripId);
@@ -438,8 +442,9 @@ public class PlanService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan day not found"));
 
         List<PlanActivityEntity> activities = planActivityRepository
-                .findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(dayId);
+                .findAllActiveForUpdateByDayId(dayId);
         for (PlanActivityEntity act : activities) {
+            updateImage(currentUserId, act, null, true);
             act.markDeleted();
         }
         publishPublicTripChanged(tripId);
@@ -504,7 +509,7 @@ public class PlanService {
         getActiveMemberTrip(tripId, currentUserId);
         assertCanEditPlan(tripId, currentUserId);
 
-        PlanActivityEntity activity = planActivityRepository.findByIdAndTripIdAndIsDelFalse(activityId, tripId)
+        PlanActivityEntity activity = planActivityRepository.findActiveForUpdate(activityId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found"));
 
         if (request.targetDayId() != null && !request.targetDayId().isBlank()) {
@@ -526,6 +531,8 @@ public class PlanService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expense belongs to another activity");
             }
         }
+
+        updateImage(currentUserId, activity, request.imageUploadId(), request.removeImage());
 
         StringBuilder changes = new StringBuilder();
         if (!activity.getTitle().equals(request.title())) {
@@ -572,6 +579,36 @@ public class PlanService {
 
         BigDecimal actualSpent = resolveActualSpent(tripId, activity);
         return PlanActivityResponse.from(activity, hashidsService, actualSpent);
+    }
+
+    @Transactional
+    public PlanActivityResponse updateActivityImage(Long currentUserId, Long tripId, Long activityId,
+                                                    UpdateActivityImageRequest request) {
+        getActiveMemberTrip(tripId, currentUserId);
+        assertCanEditPlan(tripId, currentUserId);
+        PlanActivityEntity activity = planActivityRepository.findActiveForUpdate(activityId, tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found"));
+        updateImage(currentUserId, activity, request.imageUploadId(), request.removeImage());
+        planActivityLogRepository.save(PlanActivityLogEntity.create(
+                tripId, activity.getDay().getId(), activityId, currentUserId,
+                ActivityLogAction.UPDATED, activity.getTitle(), "Cập nhật ảnh hoạt động"));
+        publishPublicTripChanged(tripId);
+        return PlanActivityResponse.from(activity, hashidsService, resolveActualSpent(tripId, activity));
+    }
+
+    private void updateImage(Long currentUserId, PlanActivityEntity activity, UUID uploadId, boolean removeImage) {
+        if (uploadId != null && removeImage) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot replace and remove image together");
+        }
+        if (uploadId == null && !removeImage) return;
+        if (uploadId != null && uploadId.equals(activity.getImageUploadId())) return;
+        String url = uploadId == null ? null : uploads.attachPending(currentUserId, uploadId,
+                UploadPurpose.ACTIVITY_IMAGE);
+        UUID previous = activity.getImageUploadId();
+        activity.updateImage(uploadId, url);
+        if (previous != null) {
+            uploads.releaseAttached(previous, UploadPurpose.ACTIVITY_IMAGE);
+        }
     }
 
     /** Joins the caller's expense transaction; never infers execution status from spending. */
@@ -657,10 +694,11 @@ public class PlanService {
         getActiveMemberTrip(tripId, currentUserId);
         assertCanEditPlan(tripId, currentUserId);
 
-        PlanActivityEntity activity = planActivityRepository.findByIdAndTripIdAndIsDelFalse(activityId, tripId)
+        PlanActivityEntity activity = planActivityRepository.findActiveForUpdate(activityId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found"));
 
         permissions.requireManagerOrCreator(tripId, currentUserId, activity.getCreatedBy());
+        updateImage(currentUserId, activity, null, true);
         activity.markDeleted();
 
         planActivityLogRepository.save(PlanActivityLogEntity.create(

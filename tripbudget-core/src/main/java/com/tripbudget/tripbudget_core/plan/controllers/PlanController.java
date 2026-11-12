@@ -211,6 +211,20 @@ public class PlanController {
         ));
     }
 
+    @PatchMapping("/activities/{activityId}/image")
+    public ResponseEntity<ApiResponse<PlanActivityResponse>> updateActivityImage(
+            @PathVariable("tripId") String tripIdHash,
+            @PathVariable("activityId") String activityIdHash,
+            @Valid @RequestBody UpdateActivityImageRequest request,
+            @CurrentUser CurrentUserDto user
+    ) {
+        Long currentUserId = user.id();
+        Long tripId = hashidsService.decode(tripIdHash);
+        Long activityId = hashidsService.decode(activityIdHash);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Activity image updated successfully",
+                planService.updateActivityImage(currentUserId, tripId, activityId, request)));
+    }
+
     @PatchMapping("/activities/{activityId}/status")
     public ResponseEntity<ApiResponse<PlanActivityResponse>> updateActivityStatus(
             @PathVariable("tripId") String tripIdHash,

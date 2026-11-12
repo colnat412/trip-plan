@@ -23,6 +23,7 @@ public record PlanActivityResponse(
         ActivityStatus status,
         Integer orderIndex,
         String note,
+        String imageUrl,
         // null in the public view.
         String expenseId,
         // null when unlinked or in the public view.
@@ -45,6 +46,7 @@ public record PlanActivityResponse(
                 entity.getStatus(),
                 entity.getOrderIndex(),
                 entity.getNote(),
+                entity.getImageUrl(),
                 entity.getExpenseId() != null ? hashidsService.encode(entity.getExpenseId()) : null,
                 actualSpent,
                 entity.getCreatedAt(),
@@ -61,7 +63,7 @@ public record PlanActivityResponse(
         return new PlanActivityResponse(
                 full.id(), null, full.dayId(), full.tripId(), full.title(),
                 full.startTime(), full.endTime(), full.location(), full.category(),
-                full.estimatedCost(), full.status(), full.orderIndex(), full.note(),
+                full.estimatedCost(), full.status(), full.orderIndex(), full.note(), full.imageUrl(),
                 null, null,
                 full.createdAt(), full.updatedAt()
         );
