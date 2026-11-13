@@ -19,5 +19,10 @@ public record PublishTemplateRequest(
         @Size(max = 64) String sourceFingerprint,
         Integer expectedContentVersion,
         UUID coverUploadId,
-        boolean removeCover
-) {}
+        Boolean removeCover
+) {
+    public PublishTemplateRequest {
+        // Keep omitted/null equivalent to false, including preview fingerprints.
+        removeCover = Boolean.TRUE.equals(removeCover);
+    }
+}
