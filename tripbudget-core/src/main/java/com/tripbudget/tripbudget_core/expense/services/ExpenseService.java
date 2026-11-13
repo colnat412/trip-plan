@@ -232,7 +232,8 @@ public class ExpenseService {
             recalculateExistingSplits(expense, newAmount, payerId);
         }
 
-        receiptService.updateReceipt(currentUserId, expense, req.receiptUploadId(), req.removeReceipt(), req.receiptUrl());
+        receiptService.updateReceipt(currentUserId, expense, req.receiptUploadId(),
+                Boolean.TRUE.equals(req.removeReceipt()), req.receiptUrl());
         ExpenseEntity savedExpense = expenseRepository.save(expense);
         for (PlanActivityEntity linked : planActivityRepository.findAllByExpenseIdAndTripIdAndIsDelFalse(expenseId, tripId)) {
             if (!linked.getId().equals(activityId)) {

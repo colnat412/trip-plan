@@ -74,7 +74,7 @@ public class AiPlanService {
                             PlanDayEntity.create(tripId, dayNumber, planDate, "Ngày " + dayNumber, null)
                     ));
 
-            List<PlanActivityEntity> existing = planActivityRepository.findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(planDay.getId());
+            List<PlanActivityEntity> existing = planActivityRepository.findAllByDayIdSorted(planDay.getId());
             int orderIndex = existing.stream().mapToInt(PlanActivityEntity::getOrderIndex).max().orElse(-1) + 1;
 
             if (dayNode.has("activities") && dayNode.get("activities").isArray()) {

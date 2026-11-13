@@ -109,7 +109,10 @@ public class PlanTemplateSnapshotBuilder {
             activitiesByDay.computeIfAbsent(dayId, ignored -> new ArrayList<>()).add(activity);
         }
         Comparator<PlanActivityEntity> activityOrder = Comparator
-                .comparing(PlanActivityEntity::getOrderIndex).thenComparing(PlanActivityEntity::getId);
+                .comparing(PlanActivityEntity::getStartTime, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(PlanActivityEntity::getOrderIndex)
+                .thenComparing(PlanActivityEntity::getCreatedAt)
+                .thenComparing(PlanActivityEntity::getId);
         activitiesByDay.values().forEach(dayActivities -> dayActivities.sort(activityOrder));
         return activitiesByDay;
     }

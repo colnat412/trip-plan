@@ -41,6 +41,6 @@ public record UpdateExpenseRequest(
 
         java.util.UUID receiptUploadId,
 
-        boolean removeReceipt
+        Boolean removeReceipt
 ) {}
 

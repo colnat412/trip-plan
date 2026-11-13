@@ -384,7 +384,7 @@ public class PlanService {
         day.updateDetails(request.planDate(), request.title(), request.note());
 
         List<PlanActivityEntity> activities = planActivityRepository
-                .findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(day.getId());
+                .findAllByDayIdSorted(day.getId());
 
         Set<Long> expenseIds = activities.stream()
                 .filter(a -> a.getExpenseId() != null)
@@ -461,7 +461,7 @@ public class PlanService {
         Integer orderIndex = request.orderIndex();
         if (orderIndex == null) {
             List<PlanActivityEntity> currentActivities = planActivityRepository
-                    .findAllByDay_IdAndIsDelFalseOrderByOrderIndexAscStartTimeAsc(dayId);
+                    .findAllByDayIdSorted(dayId);
             orderIndex = currentActivities.stream()
                     .mapToInt(PlanActivityEntity::getOrderIndex).max().orElse(-1) + 1;
         }
@@ -532,7 +532,7 @@ public class PlanService {
             }
         }
 
-        updateImage(currentUserId, activity, request.imageUploadId(), request.removeImage());
+        updateImage(currentUserId, activity, request.imageUploadId(), Boolean.TRUE.equals(request.removeImage()));
 
         StringBuilder changes = new StringBuilder();
         if (!activity.getTitle().equals(request.title())) {
@@ -588,7 +588,7 @@ public class PlanService {
         assertCanEditPlan(tripId, currentUserId);
         PlanActivityEntity activity = planActivityRepository.findActiveForUpdate(activityId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Activity not found"));
-        updateImage(currentUserId, activity, request.imageUploadId(), request.removeImage());
+        updateImage(currentUserId, activity, request.imageUploadId(), Boolean.TRUE.equals(request.removeImage()));
         planActivityLogRepository.save(PlanActivityLogEntity.create(
                 tripId, activity.getDay().getId(), activityId, currentUserId,
                 ActivityLogAction.UPDATED, activity.getTitle(), "Cập nhật ảnh hoạt động"));

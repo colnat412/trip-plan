@@ -32,7 +32,7 @@ public record UpdateActivityRequest(
         String expenseId,
         String targetDayId,
         UUID imageUploadId,
-        boolean removeImage
+        Boolean removeImage
 ) {
     @AssertTrue(message = "End time must be at or after start time on the same day")
     @JsonIgnore
