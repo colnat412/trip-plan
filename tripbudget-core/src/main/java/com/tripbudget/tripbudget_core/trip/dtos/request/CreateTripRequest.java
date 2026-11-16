@@ -38,6 +38,8 @@ public class CreateTripRequest {
     )
     private String baseCurrency = "VND";
 
+    private java.util.UUID coverUploadId;
+
     @Valid
     List<InitialMemberRequest> initialMembers;
 }

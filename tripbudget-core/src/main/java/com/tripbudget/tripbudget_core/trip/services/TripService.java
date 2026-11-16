@@ -75,6 +75,7 @@ public class TripService {
                     dto.getEndDate(),
                     dto.getBaseCurrency()
             );
+            tripCoverService.updateCover(currentUserId, trip, dto.getCoverUploadId(), false);
             TripEntity savedTrip = tripRepository.save(trip);
 
             TripMemberEntity tripOwnerMember = TripMemberEntity.createOwner(savedTrip, currentUserId);

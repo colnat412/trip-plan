@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.UUID;
 
 public record CreateActivityRequest(
         @NotBlank(message = "Title is required")
@@ -32,7 +33,9 @@ public record CreateActivityRequest(
         @PositiveOrZero
         Integer orderIndex,
 
-        String note
+        String note,
+
+        UUID imageUploadId
 ) {
     @AssertTrue(message = "End time must be at or after start time on the same day")
     @JsonIgnore

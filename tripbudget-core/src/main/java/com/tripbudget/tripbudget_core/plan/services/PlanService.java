@@ -480,6 +480,7 @@ public class PlanService {
                 request.note()
         );
 
+        updateImage(currentUserId, activity, request.imageUploadId(), false);
         PlanActivityEntity saved = planActivityRepository.save(activity);
 
         String desc = "Đã tạo hoạt động \"" + saved.getTitle() + "\"";

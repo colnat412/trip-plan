@@ -1,13 +1,12 @@
 package com.tripbudget.tripbudget_core.plan.enums;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-
 public enum ActivityCategory {
     FOOD_BEVERAGE,
+    VISIT,
     TRANSPORTATION,
-    SHOPPING,
     ACCOMMODATION,
     SIGHTSEEING,
+    SHOPPING,
     ENTERTAINMENT,
     OTHER
 }
