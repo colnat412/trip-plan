@@ -4,7 +4,7 @@ import com.tripbudget.tripbudget_core.settlement.enums.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record SettlementResponse(
         String id,
@@ -20,7 +20,7 @@ public record SettlementResponse(
         String payeeAvatarUrl,
         BigDecimal amount,
         String currency,
-        LocalDate settledAt,
+        LocalDateTime settledAt,
         PaymentMethod paymentMethod,
         String note,
         String receiptUrl,

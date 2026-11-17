@@ -6,7 +6,7 @@ import com.tripbudget.tripbudget_core.expense.enums.SplitType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record ExpenseResponse(
@@ -21,7 +21,7 @@ public record ExpenseResponse(
         ExpenseCategory category,
         BigDecimal amount,
         String currency,
-        LocalDate expenseDate,
+        LocalDateTime expenseTime,
         SplitType splitType,
         ExpenseStatus status,
         String note,

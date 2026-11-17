@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record CreateSettlementRequest(
         String payerId,
@@ -20,7 +20,7 @@ public record CreateSettlementRequest(
 
         String currency,
 
-        LocalDate settledAt,
+        LocalDateTime settledAt,
 
         PaymentMethod paymentMethod,
 

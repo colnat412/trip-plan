@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 @Getter
@@ -44,7 +44,7 @@ public class SettlementEntity extends BaseEntity {
     private String currency;
 
     @Column(name = "settled_at", nullable = false)
-    private LocalDate settledAt;
+    private LocalDateTime settledAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 30)
@@ -63,7 +63,7 @@ public class SettlementEntity extends BaseEntity {
             Long payeeId,
             BigDecimal amount,
             String currency,
-            LocalDate settledAt,
+            LocalDateTime settledAt,
             PaymentMethod paymentMethod,
             String note,
             String receiptUrl
@@ -75,7 +75,7 @@ public class SettlementEntity extends BaseEntity {
         s.payeeId = payeeId;
         s.amount = amount != null ? amount : BigDecimal.ZERO;
         s.currency = currency != null ? currency.trim().toUpperCase(Locale.ROOT) : "VND";
-        s.settledAt = settledAt != null ? settledAt : LocalDate.now();
+        s.settledAt = settledAt != null ? settledAt : LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         s.paymentMethod = paymentMethod != null ? paymentMethod : PaymentMethod.CASH;
         s.note = note != null && !note.isBlank() ? note.trim() : null;
         s.receiptUrl = receiptUrl != null && !receiptUrl.isBlank() ? receiptUrl.trim() : null;

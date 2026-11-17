@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record UpdateExpenseRequest(
@@ -23,8 +23,8 @@ public record UpdateExpenseRequest(
 
         String currency,
 
-        @NotNull(message = "Expense date is required")
-        LocalDate expenseDate,
+        @NotNull(message = "Expense time is required")
+        LocalDateTime expenseTime,
 
         SplitType splitType,
 

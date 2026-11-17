@@ -2,6 +2,7 @@ package com.tripbudget.tripbudget_core.expense.repositories;
 
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
 import com.tripbudget.tripbudget_core.expense.repositories.projections.CategorySpendingTotal;
+import com.tripbudget.tripbudget_core.expense.repositories.projections.DailySpendingTotal;
 import com.tripbudget.tripbudget_core.expense.repositories.projections.ActivitySpendingTotal;
 import com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus;
 import org.springframework.data.domain.Page;
@@ -19,13 +20,13 @@ import java.util.Optional;
 @Repository
 public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long>, JpaSpecificationExecutor<ExpenseEntity> {
 
-    Page<ExpenseEntity> findByTripIdAndStatusNotAndIsDelFalseOrderByExpenseDateDesc(
+    Page<ExpenseEntity> findByTripIdAndStatusNotAndIsDelFalseOrderByExpenseTimeDesc(
             Long tripId,
             ExpenseStatus status,
             Pageable pageable
     );
 
-    List<ExpenseEntity> findByTripIdAndStatusNotAndIsDelFalseOrderByExpenseDateDesc(
+    List<ExpenseEntity> findByTripIdAndStatusNotAndIsDelFalseOrderByExpenseTimeDesc(
             Long tripId,
             ExpenseStatus status
     );
@@ -57,6 +58,21 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long>, J
             GROUP BY expense.category
             """)
     List<CategorySpendingTotal> sumAmountByCategory(
+            @Param("tripId") Long tripId,
+            @Param("status") ExpenseStatus status
+    );
+
+    @Query("""
+            SELECT CAST(expense.expenseTime AS LocalDate) AS date, expense.currency AS currency,
+                   COALESCE(SUM(expense.amount), 0) AS amount
+            FROM ExpenseEntity expense
+            WHERE expense.tripId = :tripId
+              AND expense.status = :status
+              AND expense.isDel = false
+            GROUP BY CAST(expense.expenseTime AS LocalDate), expense.currency
+            ORDER BY CAST(expense.expenseTime AS LocalDate) DESC, expense.currency ASC
+            """)
+    List<DailySpendingTotal> sumAmountByDateAndCurrency(
             @Param("tripId") Long tripId,
             @Param("status") ExpenseStatus status
     );

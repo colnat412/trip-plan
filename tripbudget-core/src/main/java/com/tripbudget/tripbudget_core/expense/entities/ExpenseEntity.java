@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -21,7 +21,7 @@ import java.util.Locale;
         schema = "trip_core",
         name = "expenses",
         indexes = {
-                @Index(name = "idx_expenses_trip_date", columnList = "trip_id, expense_date"),
+                @Index(name = "idx_expenses_trip_time", columnList = "trip_id, expense_time"),
                 @Index(name = "idx_expenses_payer", columnList = "payer_id")
         }
 )
@@ -53,8 +53,8 @@ public class ExpenseEntity extends BaseEntity {
     @Column(nullable = false, length = 3)
     private String currency;
 
-    @Column(name = "expense_date", nullable = false)
-    private LocalDate expenseDate;
+    @Column(name = "expense_time", nullable = false)
+    private LocalDateTime expenseTime;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "split_type", nullable = false, length = 30)
@@ -93,7 +93,7 @@ public class ExpenseEntity extends BaseEntity {
             ExpenseCategory category,
             BigDecimal amount,
             String currency,
-            LocalDate expenseDate,
+            LocalDateTime expenseTime,
             SplitType splitType,
             String note,
             String receiptUrl,
@@ -107,7 +107,7 @@ public class ExpenseEntity extends BaseEntity {
         expense.category = category != null ? category : ExpenseCategory.OTHER;
         expense.amount = amount != null ? amount : BigDecimal.ZERO;
         expense.currency = currency != null ? currency.trim().toUpperCase(Locale.ROOT) : "VND";
-        expense.expenseDate = expenseDate != null ? expenseDate : LocalDate.now();
+        expense.expenseTime = expenseTime != null ? expenseTime : LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         expense.splitType = splitType != null ? splitType : SplitType.EQUAL;
         expense.status = ExpenseStatus.CONFIRMED;
         expense.note = note != null && !note.isBlank() ? note.trim() : null;
@@ -124,12 +124,12 @@ public class ExpenseEntity extends BaseEntity {
             ExpenseCategory category,
             BigDecimal amount,
             String currency,
-            LocalDate expenseDate,
+            LocalDateTime expenseTime,
             SplitType splitType,
             String note,
             String receiptUrl
     ) {
-        return create(createdBy, tripId, payerId, title, category, amount, currency, expenseDate, splitType, note, receiptUrl, null);
+        return create(createdBy, tripId, payerId, title, category, amount, currency, expenseTime, splitType, note, receiptUrl, null);
     }
 
     public void update(
@@ -138,7 +138,7 @@ public class ExpenseEntity extends BaseEntity {
             ExpenseCategory category,
             BigDecimal amount,
             String currency,
-            LocalDate expenseDate,
+            LocalDateTime expenseTime,
             SplitType splitType,
             String note,
             String receiptUrl,
@@ -159,8 +159,8 @@ public class ExpenseEntity extends BaseEntity {
         if (currency != null && !currency.isBlank()) {
             this.currency = currency.trim().toUpperCase(Locale.ROOT);
         }
-        if (expenseDate != null) {
-            this.expenseDate = expenseDate;
+        if (expenseTime != null) {
+            this.expenseTime = expenseTime;
         }
         if (splitType != null) {
             this.splitType = splitType;
@@ -178,12 +178,12 @@ public class ExpenseEntity extends BaseEntity {
             ExpenseCategory category,
             BigDecimal amount,
             String currency,
-            LocalDate expenseDate,
+            LocalDateTime expenseTime,
             SplitType splitType,
             String note,
             String receiptUrl
     ) {
-        update(payerId, title, category, amount, currency, expenseDate, splitType, note, receiptUrl, null);
+        update(payerId, title, category, amount, currency, expenseTime, splitType, note, receiptUrl, null);
     }
 
     public void setActivityId(Long activityId) {
@@ -195,12 +195,12 @@ public class ExpenseEntity extends BaseEntity {
             ExpenseCategory category,
             BigDecimal amount,
             String currency,
-            LocalDate expenseDate,
+            LocalDateTime expenseTime,
             SplitType splitType,
             String note,
             String receiptUrl
     ) {
-        update(null, title, category, amount, currency, expenseDate, splitType, note, receiptUrl);
+        update(null, title, category, amount, currency, expenseTime, splitType, note, receiptUrl);
     }
 
     public void deleteExpense() {

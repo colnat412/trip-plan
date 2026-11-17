@@ -101,16 +101,16 @@ public class ExpenseSpecifications {
             case "splittype" -> "splitType";
             case "createdat" -> "createdAt";
             case "id" -> "id";
-            case "expensedate", "date" -> "expenseDate";
-            default -> "expenseDate";
+            case "expensetime", "date" -> "expenseTime";
+            default -> "expenseTime";
         };
 
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection)
                 ? Sort.Direction.ASC
                 : Sort.Direction.DESC;
 
-        if ("expenseDate".equals(property)) {
-            return Sort.by(direction, "expenseDate").and(Sort.by(Sort.Direction.DESC, "id"));
+        if ("expenseTime".equals(property)) {
+            return Sort.by(direction, "expenseTime").and(Sort.by(Sort.Direction.DESC, "id"));
         }
 
         return Sort.by(direction, property);

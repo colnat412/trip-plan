@@ -39,7 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -69,7 +69,7 @@ public class ExpenseService {
                 ? req.currency().trim().toUpperCase(Locale.ROOT)
                 : trip.getBaseCurrency();
 
-        LocalDate expenseDate = req.expenseDate() != null ? req.expenseDate() : LocalDate.now();
+        LocalDateTime expenseTime = req.expenseTime() != null ? req.expenseTime() : LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         SplitType splitType = req.splitType() != null ? req.splitType() : SplitType.EQUAL;
         Long activityId = (req.activityId() != null && !req.activityId().isBlank())
                 ? hashidsService.decode(req.activityId())
@@ -84,7 +84,7 @@ public class ExpenseService {
                 req.category(),
                 req.amount(),
                 currency,
-                expenseDate,
+                expenseTime,
                 splitType,
                 req.note(),
                 null,
@@ -217,12 +217,13 @@ public class ExpenseService {
                 req.category() != null ? req.category() : expense.getCategory(),
                 newAmount,
                 newCurrency,
-                req.expenseDate() != null ? req.expenseDate() : expense.getExpenseDate(),
+                req.expenseTime() != null ? req.expenseTime() : expense.getExpenseTime(),
                 newSplitType,
                 req.note(),
                 expense.getReceiptUrl(),
                 activityId
         );
+
 
         if (req.splits() != null && !req.splits().isEmpty()) {
             applyExpenseSplits(expense, newAmount, newSplitType, req.splits(), payerId, tripId, currentUserId);
@@ -628,7 +629,7 @@ public class ExpenseService {
                 entity.getCategory(),
                 entity.getAmount(),
                 entity.getCurrency(),
-                entity.getExpenseDate(),
+                entity.getExpenseTime(),
                 entity.getSplitType(),
                 entity.getStatus(),
                 entity.getNote(),

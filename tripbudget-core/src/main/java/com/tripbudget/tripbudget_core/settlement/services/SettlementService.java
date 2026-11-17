@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -59,7 +59,7 @@ public class SettlementService {
                 .map(TripMemberEntity::getUserId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        List<ExpenseEntity> expenses = expenseRepository.findByTripIdAndStatusNotAndIsDelFalseOrderByExpenseDateDesc(
+        List<ExpenseEntity> expenses = expenseRepository.findByTripIdAndStatusNotAndIsDelFalseOrderByExpenseTimeDesc(
                 tripId, ExpenseStatus.DELETED
         );
 
@@ -209,7 +209,7 @@ public class SettlementService {
         String currency = (req.currency() != null && !req.currency().isBlank())
                 ? req.currency().trim().toUpperCase(Locale.ROOT)
                 : trip.getBaseCurrency();
-        LocalDate settledAt = req.settledAt() != null ? req.settledAt() : LocalDate.now();
+        LocalDateTime settledAt = req.settledAt() != null ? req.settledAt() : LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         PaymentMethod method = req.paymentMethod() != null ? req.paymentMethod() : PaymentMethod.CASH;
 
         SettlementEntity settlement = SettlementEntity.create(
