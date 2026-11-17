@@ -2,6 +2,7 @@ package com.tripbudget.tripbudget_core.expense.repositories;
 
 import com.tripbudget.tripbudget_core.expense.entities.ExpenseEntity;
 import com.tripbudget.tripbudget_core.expense.repositories.projections.CategorySpendingTotal;
+import com.tripbudget.tripbudget_core.expense.repositories.projections.DailySpendingTotal;
 import com.tripbudget.tripbudget_core.expense.repositories.projections.ActivitySpendingTotal;
 import com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,21 @@ public interface ExpenseRepository extends JpaRepository<ExpenseEntity, Long>, J
     Optional<ExpenseEntity> findByIdAndIsDelFalse(Long id);
 
     List<ExpenseEntity> findAllByIdInAndTripIdAndIsDelFalse(java.util.Collection<Long> ids, Long tripId);
+
+    @Query("""
+            SELECT expense.expenseDate AS expenseDate, expense.currency AS currency,
+                   COALESCE(SUM(expense.amount), 0) AS totalSpent
+            FROM ExpenseEntity expense
+            WHERE expense.tripId = :tripId
+              AND expense.status = :status
+              AND expense.isDel = false
+            GROUP BY expense.expenseDate, expense.currency
+            ORDER BY expense.expenseDate DESC, expense.currency
+            """)
+    List<DailySpendingTotal> sumAmountByDate(
+            @Param("tripId") Long tripId,
+            @Param("status") ExpenseStatus status
+    );
 
     @Query("""
             SELECT COALESCE(SUM(expense.amount), 0)

@@ -10,6 +10,7 @@ public record TripBudgetSummaryResponse(
         BigDecimal remainingBudget,
         double percentageUsed,
         String currency,
-        List<CategoryBreakdownResponse> categoryBreakdown
+        List<CategoryBreakdownResponse> categoryBreakdown,
+        List<DailySpendingResponse> dailyTotals
 ) {}
 

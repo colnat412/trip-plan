@@ -5,6 +5,7 @@ import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
 import com.tripbudget.tripbudget_core.expense.dtos.request.SetBudgetRequest;
 import com.tripbudget.tripbudget_core.expense.dtos.response.CategoryBreakdownResponse;
 import com.tripbudget.tripbudget_core.expense.dtos.response.TripBudgetSummaryResponse;
+import com.tripbudget.tripbudget_core.expense.dtos.response.DailySpendingResponse;
 import com.tripbudget.tripbudget_core.expense.entities.BudgetEntity;
 import com.tripbudget.tripbudget_core.expense.entities.CategoryBudgetEntity;
 import com.tripbudget.tripbudget_core.expense.enums.ExpenseCategory;
@@ -91,7 +92,10 @@ public class BudgetService {
                 remainingBudget,
                 percentageUsed,
                 currency,
-                breakdownList
+                breakdownList,
+                expenseRepository.sumAmountByDate(tripId, ExpenseStatus.CONFIRMED).stream()
+                        .map(row -> new DailySpendingResponse(row.getExpenseDate(), row.getCurrency(), row.getTotalSpent()))
+                        .toList()
         );
     }
 
