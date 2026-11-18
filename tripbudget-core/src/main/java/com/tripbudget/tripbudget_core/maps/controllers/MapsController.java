@@ -52,6 +52,18 @@ public class MapsController {
         return success(response);
     }
 
+    @GetMapping("/discovery")
+    public ResponseEntity<ApiResponse<MapSearchResponse>> discovery(
+            @RequestParam(defaultValue = "") String destination,
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "") String category,
+            @RequestParam(defaultValue = "vi") String lang,
+            @CurrentUser CurrentUserDto user
+    ) {
+        Long currentUserId = user.id();
+        return success(mapsService.discover(currentUserId, destination, q, category, lang));
+    }
+
     @PostMapping("/distance")
     public ResponseEntity<ApiResponse<MapDistanceMatrixResponse>> distance(
             @RequestBody MapDistanceRequest request,

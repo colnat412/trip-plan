@@ -11,9 +11,11 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 
 @Component
@@ -84,10 +86,118 @@ public class VietmapClient {
             referenceId = predictions.getFirst().placeId();
         }
 
+        return placeCoordinates(referenceId);
+    }
+
+    public MapCoordinatesResponse destinationCenter(String destination) {
+        // Resolve the trip's administrative destination, not an arbitrary similarly named POI.
+        List<MapPlacePredictionResponse> regions = search(destination, true);
+        return regions.isEmpty() ? null : placeCoordinates(regions.getFirst().placeId());
+    }
+
+    private MapCoordinatesResponse placeCoordinates(String referenceId) {
         Map<String, List<String>> detailQuery = createAuthenticatedQuery();
         detailQuery.put("refid", List.of(referenceId));
         JsonNode placeResponse = httpClient.get(BASE_URL + "place/v4", detailQuery, false);
         return MapResponseMapper.coordinates(placeResponse.path("lat"), placeResponse.path("lng"));
+    }
+
+    public List<MapPlacePredictionResponse> discover(String destination, String input,
+            DiscoveryCategory category, MapCoordinatesResponse center) {
+        List<List<MapPlacePredictionResponse>> groups = new ArrayList<>();
+        List<DiscoveryCategory.Topic> topics = category.topics();
+        if (category == DiscoveryCategory.OTHER) {
+            if (input.isBlank()) return List.of();
+            topics = List.of(new DiscoveryCategory.Topic("", ""));
+        }
+        for (DiscoveryCategory.Topic topic : topics) {
+            List<MapPlacePredictionResponse> group = new ArrayList<>();
+            Set<String> seenGroupPlaces = new HashSet<>();
+            List<String> queries = discoveryQueries(destination, input, category, topic);
+            for (String text : queries) {
+                // Broaden the query only when needed, retaining the same category and area filters.
+                if (group.size() >= 6) break;
+                for (MapPlacePredictionResponse place : searchDiscoveryGroup(text, input, category, topic, center)) {
+                    if (seenGroupPlaces.add(discoveryIdentity(place))) group.add(place);
+                }
+            }
+            groups.add(group);
+        }
+        // Interleave subtypes instead of filling the list with one kind of business.
+        List<MapPlacePredictionResponse> results = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        Set<String> seenPlaces = new HashSet<>();
+        int longestGroup = groups.stream().mapToInt(List::size).max().orElse(0);
+        for (int index = 0; index < longestGroup && results.size() < 40; index++) {
+            for (List<MapPlacePredictionResponse> group : groups) {
+                if (index >= group.size()) continue;
+                MapPlacePredictionResponse place = group.get(index);
+                String identity = discoveryIdentity(place);
+                if (seenIds.contains(place.placeId()) || seenPlaces.contains(identity)) continue;
+                seenIds.add(place.placeId());
+                seenPlaces.add(identity);
+                results.add(place);
+                if (results.size() == 40) break;
+            }
+        }
+        return results;
+    }
+
+    private List<String> discoveryQueries(String destination, String input,
+            DiscoveryCategory category, DiscoveryCategory.Topic topic) {
+        String primary = input.isBlank() ? topic.defaultQuery() : input;
+        if (primary.isBlank()) primary = destination;
+        if (category == DiscoveryCategory.OTHER) return List.of(primary);
+        String secondary = destination;
+        if (!input.isBlank()) {
+            List<String> tokens = category.searchTokens(input);
+            secondary = tokens.isEmpty() ? destination : String.join(" ", tokens);
+        }
+        return DiscoveryCategory.normalize(primary).equals(DiscoveryCategory.normalize(secondary))
+                ? List.of(primary) : List.of(primary, secondary);
+    }
+
+    private List<MapPlacePredictionResponse> searchDiscoveryGroup(String text, String input,
+            DiscoveryCategory category, DiscoveryCategory.Topic topic, MapCoordinatesResponse center) {
+        Map<String, List<String>> query = createAuthenticatedQuery();
+        query.put("text", List.of(text));
+        query.put("layers", List.of("POI"));
+        query.put("display_type", List.of("1"));
+        String focus = center.latitude() + "," + center.longitude();
+        query.put("focus", List.of(focus));
+        query.put("circle_center", List.of(focus));
+        query.put("circle_radius", List.of("30000"));
+        if (!topic.code().isBlank()) query.put("cats", List.of(topic.code()));
+        JsonNode response = httpClient.get(BASE_URL + "autocomplete/v4", query, false);
+        if (!response.isArray()) throw MapsException.provider();
+        List<MapPlacePredictionResponse> results = new ArrayList<>();
+        List<String> tokens = category.searchTokens(input);
+        for (JsonNode place : response) {
+            if (!category.accepts(place, topic)) continue;
+            if (!input.isBlank() && !matchesDiscoveryInput(place.path("name").asText(""), tokens)) continue;
+            // distance is in kilometers from focus. Missing distance cannot establish locality.
+            JsonNode distance = place.path("distance");
+            if (!distance.isNumber() || !Double.isFinite(distance.asDouble())
+                    || distance.asDouble() < 0 || distance.asDouble() > 30) continue;
+            String referenceId = place.path("ref_id").asText("");
+            String display = place.path("display").asText("");
+            if (referenceId.isBlank() || display.isBlank()) continue;
+            results.add(new MapPlacePredictionResponse(referenceId, place.path("name").asText(),
+                    place.path("address").asText(""), display, "vietmap", null));
+        }
+        return results;
+    }
+
+    private String discoveryIdentity(MapPlacePredictionResponse place) {
+        return DiscoveryCategory.normalize(place.mainText()) + "|" + DiscoveryCategory.normalize(place.secondaryText());
+    }
+
+    private boolean matchesDiscoveryInput(String name, List<String> tokens) {
+        String normalizedName = " " + DiscoveryCategory.normalize(name);
+        for (String token : tokens) {
+            if (!normalizedName.contains(" " + token)) return false;
+        }
+        return true;
     }
 
     public List<MapDistanceRowResponse> matrix(List<MapCoordinatesResponse> origins,

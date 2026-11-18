@@ -31,7 +31,8 @@ public class MapsResponseCache {
     private final Clock clock;
     // Matrix loading calls geocoding: separate lock groups prevent nested lock inversions.
     private final java.util.Map<String, Object[]> locks = java.util.Map.of(
-            "search", createLocks(), "location", createLocks(), "distance", createLocks());
+            "search", createLocks(), "location", createLocks(), "distance", createLocks(),
+            "discovery", createLocks());
     private final LinkedHashMap<String, CachedResponse> local = new LinkedHashMap<>(16, 0.75f, true);
     private int localBytes;
 
@@ -56,6 +57,12 @@ public class MapsResponseCache {
     public MapLocationResultResponse location(String address, String language, String source, Supplier<MapLocationResultResponse> fetch) {
         return cached(List.of("location", address, language, source), MapLocationResultResponse.class,
                 result -> result.location() == null ? Duration.ofSeconds(30) : Duration.ofHours(24), fetch);
+    }
+
+    public MapSearchResponse discovery(String destination, String input, String category, String language,
+            Supplier<MapSearchResponse> fetch) {
+        return cached(List.of("discovery", "v2", destination, input, category, language), MapSearchResponse.class,
+                result -> result.predictions().isEmpty() ? Duration.ofSeconds(30) : Duration.ofMinutes(5), fetch);
     }
 
     public MapDistanceMatrixResponse distance(List<String> origins, List<String> destinations, String language,

@@ -1,6 +1,7 @@
 package com.tripbudget.tripbudget_core.maps.services;
 
 import com.tripbudget.tripbudget_core.maps.clients.OsmMapsClient;
+import com.tripbudget.tripbudget_core.maps.clients.DiscoveryCategory;
 import com.tripbudget.tripbudget_core.maps.cache.MapsResponseCache;
 import com.tripbudget.tripbudget_core.maps.clients.VietmapClient;
 import com.tripbudget.tripbudget_core.maps.dtos.request.MapDistanceRequest;
@@ -86,6 +87,31 @@ public class MapsService {
                 () -> findLocation(query, normalizeLanguage(language), "osm")
         );
         return new MapLocationResultResponse(location);
+    }
+
+    public MapSearchResponse discover(Long currentUserId, String destination, String input,
+            String categoryValue, String language) {
+        requireUser(currentUserId);
+        String context = validateText(destination, 250);
+        String term = validateText(input, 250);
+        DiscoveryCategory category = DiscoveryCategory.parse(categoryValue);
+        mapsBudget.consume(currentUserId, 0);
+        if (context.length() < 2 || (!term.isBlank() && term.length() < 2)
+                || (category == DiscoveryCategory.OTHER && term.isBlank())) {
+            return new MapSearchResponse(List.of(), "vietmap");
+        }
+        // Discovery must retain classification and locality. Never fall back to unfiltered search.
+        if (!vietmapClient.configured()) throw MapsException.provider();
+        return responseCache.discovery(context, term, category.name(), normalizeLanguage(language), () -> {
+            MapLocationResponse location = responseCache.location("discovery:" + context,
+                    normalizeLanguage(language), "vietmap", () -> {
+                        MapCoordinatesResponse coordinates = vietmapClient.destinationCenter(context);
+                        return new MapLocationResultResponse(coordinates == null ? null
+                                : new MapLocationResponse(coordinates, "vietmap"));
+                    }).location();
+            if (location == null) return new MapSearchResponse(List.of(), "vietmap");
+            return new MapSearchResponse(vietmapClient.discover(context, term, category, location.coordinates()), "vietmap");
+        });
     }
 
     public MapDistanceMatrixResponse distance(Long currentUserId, MapDistanceRequest request) {
