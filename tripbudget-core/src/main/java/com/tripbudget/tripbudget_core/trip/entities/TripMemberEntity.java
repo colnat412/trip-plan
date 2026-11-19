@@ -102,10 +102,11 @@ public class TripMemberEntity extends BaseEntity {
         if (newStatus == null) {
             throw new IllegalArgumentException("Status cannot be null");
         }
-        this.status = newStatus;
-        if (newStatus == TripMemberStatus.ACTIVE && this.joinedAt == null) {
+        // An invitation is not membership: start joinedAt when it is actually accepted.
+        if (newStatus == TripMemberStatus.ACTIVE && this.status != TripMemberStatus.ACTIVE) {
             this.joinedAt = Instant.now();
         }
+        this.status = newStatus;
     }
 
     public void remove() {

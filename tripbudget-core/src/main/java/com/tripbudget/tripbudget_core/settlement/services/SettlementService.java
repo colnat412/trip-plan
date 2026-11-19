@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.settlement.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
+import com.tripbudget.tripbudget_core.notification.enums.NotificationType;
 import com.tripbudget.tripbudget_core.trip.services.TripPermissionService;
 
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
@@ -38,6 +40,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SettlementService {
 
+    private final NotificationService notifications;
     private final TripPermissionService permissions;
 
     private final SettlementRepository settlementRepository;
@@ -226,6 +229,8 @@ public class SettlementService {
         );
 
         SettlementEntity saved = settlementRepository.save(settlement);
+        notifications.emit(currentUserId, trip, NotificationType.SETTLEMENT_RECORDED, List.of(payerId, payeeId),
+            saved.getAmount().toPlainString() + " " + saved.getCurrency(), saved.getId(), UUID.randomUUID().toString(), null);
         Map<Long, UserEntity> userMap = getUserMap(Set.of(payerId, payeeId));
         return mapToSettlementResponse(saved, userMap);
     }
@@ -245,6 +250,9 @@ public class SettlementService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to delete this settlement");
         }
 
+        notifications.emit(currentUserId, getValidTrip(tripId), NotificationType.SETTLEMENT_DELETED,
+            List.of(settlement.getPayerId(), settlement.getPayeeId()),
+            settlement.getAmount().toPlainString() + " " + settlement.getCurrency(), null, UUID.randomUUID().toString(), null);
         settlement.markDeleted();
         settlementRepository.save(settlement);
     }

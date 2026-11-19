@@ -51,3 +51,10 @@ maps:
     routing-url: ${OSM_ROUTING_URL:https://routing.openstreetmap.de/routed-car}
   require-https: ${MAPS_REQUIRE_HTTPS:false}
   trust-proxy: ${MAPS_TRUST_PROXY:false}
+
+notifications:
+  enabled: ${NOTIFICATIONS_ENABLED:false}
+  push-enabled: ${NOTIFICATION_PUSH_ENABLED:false}
+  web-origin: ${NOTIFICATION_WEB_ORIGIN:http://localhost:3000}
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID:}

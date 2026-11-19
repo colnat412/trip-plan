@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.trip.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
+import com.tripbudget.tripbudget_core.notification.enums.NotificationType;
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.plan.services.PlanService;
 import com.tripbudget.tripbudget_core.trip.dtos.request.CreateTripRequest;
@@ -45,6 +47,7 @@ public class TripService {
     private final ApplicationEventPublisher eventPublisher;
     private final TripCoverService tripCoverService;
     private final PlanService planService;
+    private final NotificationService notifications;
 
     public TripService(
             TripRepository tripRepository,
@@ -52,7 +55,8 @@ public class TripService {
             HashidsService hashidsService,
             ApplicationEventPublisher eventPublisher,
             TripCoverService tripCoverService,
-            PlanService planService
+            PlanService planService,
+            NotificationService notifications
     ) {
         this.tripRepository = tripRepository;
         this.tripMemberRepository = tripMemberRepository;
@@ -60,6 +64,7 @@ public class TripService {
         this.eventPublisher = eventPublisher;
         this.tripCoverService = tripCoverService;
         this.planService = planService;
+        this.notifications = notifications;
     }
 
     @Transactional
@@ -118,6 +123,7 @@ public class TripService {
                             .invite(savedTrip, hashidsService.decode(item.userId()), item.role())).toList();
 
             tripMemberRepository.saveAll(invitations);
+            for (TripMemberEntity invitation : invitations) notifications.memberInvited(currentUserId, trip, invitation);
 
             return TripResponse.from(savedTrip, hashidsService);
     }
@@ -180,6 +186,7 @@ public class TripService {
 
         tripCoverService.updateCover(currentUserId, trip, dto.getCoverUploadId(), dto.isRemoveCover());
 
+        TripStatus previousStatus = trip.getStatus();
         trip.update(
                 dto.getName(),
                 dto.getDescription(),
@@ -191,6 +198,12 @@ public class TripService {
         );
 
         if (datesChanged) planService.synchronizeTripDates(trip);
+        if (trip.getStatus() == TripStatus.CANCELLED && previousStatus != TripStatus.CANCELLED) {
+            List<Long> recipients = tripMemberRepository.findAllByTrip_IdAndStatus(tripId, TripMemberStatus.ACTIVE)
+                .stream().filter(m -> !m.isDel()).map(TripMemberEntity::getUserId).toList();
+            notifications.emit(currentUserId, trip, NotificationType.TRIP_CANCELLED, recipients,
+                "", tripId, java.util.UUID.randomUUID().toString(), null);
+        }
 
         eventPublisher.publishEvent(PublicTripChangedEvent.of(tripId));
         return TripResponse.from(trip, hashidsService);
@@ -344,11 +357,13 @@ public class TripService {
             // When joining via the link, set status INVITED so the trip owner can approve it
             TripMemberEntity newMember = TripMemberEntity.invite(trip, currentUserId, assignRole);
             tripMemberRepository.save(newMember);
+            notifications.memberAdded(currentUserId, trip, newMember);
         } else {
             TripMemberEntity existing = existingMemberOpt.get();
             if (existing.isDel() || existing.getStatus() == TripMemberStatus.LEFT || existing.getStatus() == TripMemberStatus.REMOVED) {
                 existing.reactivate(assignRole, TripMemberStatus.INVITED);
                 tripMemberRepository.save(existing);
+                notifications.memberAdded(currentUserId, trip, existing);
             }
         }
 

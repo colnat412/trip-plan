@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
+    private final com.tripbudget.tripbudget_core.notification.services.NotificationService notifications;
     private final AuthService auth;
     private final AuthSessionService sessions;
     private final UserService users;
@@ -83,6 +84,8 @@ public class AuthController {
             sessions.revoke(currentUserId.toString(), user.sessionId());
         } catch (RuntimeException exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
+        } finally {
+            notifications.revokeSession(currentUserId, user.sessionId());
         }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, refreshCookie("", 0))

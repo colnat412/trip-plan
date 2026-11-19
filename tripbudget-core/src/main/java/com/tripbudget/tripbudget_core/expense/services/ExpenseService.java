@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.expense.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
+import com.tripbudget.tripbudget_core.notification.enums.NotificationType;
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.expense.dtos.request.CreateExpenseRequest;
 import com.tripbudget.tripbudget_core.expense.dtos.request.ExpenseFilterRequest;
@@ -46,6 +48,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ExpenseService {
 
+    private final NotificationService notifications;
     private final TripPermissionService permissions;
 
     private final ExpenseRepository expenseRepository;
@@ -98,6 +101,7 @@ public class ExpenseService {
         if (activityId != null) {
             planService.linkExpenseToActivity(currentUserId, tripId, activityId, savedExpense.getId());
         }
+        notifyExpense(currentUserId, trip, savedExpense, NotificationType.EXPENSE_CREATED, null);
         return mapToResponse(savedExpense);
     }
 
@@ -186,6 +190,7 @@ public class ExpenseService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense has been deleted");
         }
 
+        ExpenseNotificationSnapshot previousNotification = notificationSnapshot(expense);
         Long payerId = expense.getPayerId();
         if (req.payerId() != null && !req.payerId().isBlank()) {
             Long decodedPayerId = hashidsService.decode(req.payerId());
@@ -244,6 +249,7 @@ public class ExpenseService {
         if (activityId != null) {
             planService.linkExpenseToActivity(currentUserId, tripId, activityId, savedExpense.getId());
         }
+        notifyExpense(currentUserId, trip, savedExpense, NotificationType.EXPENSE_UPDATED, previousNotification);
         return mapToResponse(savedExpense);
     }
 
@@ -257,6 +263,7 @@ public class ExpenseService {
         permissions.requireManagerOrCreator(tripId, currentUserId, expense.getCreatedBy());
 
         receiptService.updateReceipt(currentUserId, expense, null, true, null);
+        notifyExpense(currentUserId, getValidTrip(tripId), expense, NotificationType.EXPENSE_DELETED, null);
         expense.deleteExpense();
         expenseRepository.save(expense);
 
@@ -265,6 +272,32 @@ public class ExpenseService {
         for (PlanActivityEntity activity : linkedActivities) {
             activity.setExpenseId(null);
         }
+    }
+
+    private record ExpenseNotificationSnapshot(Long payerId, BigDecimal amount, String currency,
+            Map<Long, BigDecimal> shares) {}
+
+    private ExpenseNotificationSnapshot notificationSnapshot(ExpenseEntity expense) {
+        Map<Long, BigDecimal> shares = new TreeMap<>();
+        for (ExpenseSplitEntity split : expense.getSplits()) {
+            if (!split.isDel()) shares.put(split.getUserId(), split.getAllocatedAmount().stripTrailingZeros());
+        }
+        return new ExpenseNotificationSnapshot(expense.getPayerId(), expense.getAmount().stripTrailingZeros(),
+            expense.getCurrency(), shares);
+    }
+
+    private void notifyExpense(Long actorId, TripEntity trip, ExpenseEntity expense,
+            NotificationType type, ExpenseNotificationSnapshot previous) {
+        ExpenseNotificationSnapshot current = notificationSnapshot(expense);
+        if (previous != null && previous.equals(current)) return;
+        Set<Long> recipients = new LinkedHashSet<>(current.shares().keySet());
+        recipients.add(current.payerId());
+        if (previous != null) {
+            recipients.addAll(previous.shares().keySet());
+            recipients.add(previous.payerId());
+        }
+        notifications.emit(actorId, trip, type, recipients, expense.getTitle(), expense.getId(),
+            UUID.randomUUID().toString(), null);
     }
 
     private void validateActivityLink(Long tripId, Long activityId) {

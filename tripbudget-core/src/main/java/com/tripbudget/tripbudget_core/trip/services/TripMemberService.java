@@ -1,5 +1,7 @@
 package com.tripbudget.tripbudget_core.trip.services;
 
+import com.tripbudget.tripbudget_core.notification.services.NotificationService;
+import com.tripbudget.tripbudget_core.notification.enums.NotificationType;
 import com.tripbudget.tripbudget_core.trip.dtos.request.InviteMemberRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.request.UpdateMemberRoleRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.response.TripMemberResponse;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TripMemberService {
 
+    private final NotificationService notifications;
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
     private final UserRepository userRepository;
@@ -48,14 +51,15 @@ public class TripMemberService {
         Map<Long, UserEntity> userMap = users.stream()
                 .collect(Collectors.toMap(UserEntity::getId, u -> u));
 
+        Set<Long> pendingInvitations = notifications.pendingInvitationMemberIds(tripId);
         return members.stream()
-                .map(m -> mapToResponse(m, userMap.get(m.getUserId())))
+                .map(m -> mapToResponse(m, userMap.get(m.getUserId()), pendingInvitations.contains(m.getId())))
                 .toList();
     }
 
     @Transactional
     public TripMemberResponse inviteMember(Long currentUserId, Long tripId, InviteMemberRequest req) {
-        TripEntity trip = getActiveTrip(tripId);
+        TripEntity trip = getActiveTripForUpdate(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
         if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
@@ -81,7 +85,7 @@ public class TripMemberService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are already a member of this trip");
         }
 
-        TripMemberStatus initialStatus = caller.getRole() == TripMemberRole.OWNER ? TripMemberStatus.ACTIVE : TripMemberStatus.INVITED;
+        TripMemberStatus initialStatus = TripMemberStatus.INVITED;
 
         Optional<TripMemberEntity> existingOpt = tripMemberRepository.findByTrip_IdAndUserId(tripId, targetUser.getId());
         if (existingOpt.isPresent()) {
@@ -95,20 +99,20 @@ public class TripMemberService {
 
             existing.reactivate(req.role(), initialStatus);
             TripMemberEntity saved = tripMemberRepository.save(existing);
+            notifications.memberInvited(currentUserId, trip, saved);
             return mapToResponse(saved, targetUser);
         }
 
-        TripMemberEntity newMember = caller.getRole() == TripMemberRole.OWNER
-                ? TripMemberEntity.addDirectMember(trip, targetUser.getId(), req.role())
-                : TripMemberEntity.invite(trip, targetUser.getId(), req.role());
+        TripMemberEntity newMember = TripMemberEntity.invite(trip, targetUser.getId(), req.role());
                 
         TripMemberEntity saved = tripMemberRepository.save(newMember);
+        notifications.memberInvited(currentUserId, trip, saved);
         return mapToResponse(saved, targetUser);
     }
 
     @Transactional
     public TripMemberResponse acceptMember(Long currentUserId, Long tripId, Long memberId) {
-        getActiveTrip(tripId);
+        getActiveTripForUpdate(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
         if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
@@ -121,6 +125,9 @@ public class TripMemberService {
         if (caller.getRole() != TripMemberRole.OWNER && targetMember.getRole() != TripMemberRole.MEMBER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vice can only approve regular members");
         }
+        if (notifications.hasRecipientInvitation(targetMember.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the invited user can accept this invitation");
+        }
         if (targetMember.getStatus() != TripMemberStatus.INVITED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending invitations can be approved");
         }
@@ -128,13 +135,15 @@ public class TripMemberService {
         targetMember.updateStatus(TripMemberStatus.ACTIVE);
         TripMemberEntity saved = tripMemberRepository.save(targetMember);
 
+        notifications.emit(currentUserId, targetMember.getTrip(), NotificationType.MEMBER_APPROVED,
+            List.of(targetMember.getUserId()), "", targetMember.getId(), UUID.randomUUID().toString(), null);
         UserEntity user = userRepository.findById(targetMember.getUserId()).orElse(null);
         return mapToResponse(saved, user);
     }
 
     @Transactional
     public TripMemberResponse updateMemberRole(Long currentUserId, Long tripId, Long memberId, UpdateMemberRoleRequest req) {
-        getActiveTrip(tripId);
+        getActiveTripForUpdate(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
         if (caller.getRole() != TripMemberRole.OWNER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the trip owner can change member roles");
@@ -145,8 +154,13 @@ public class TripMemberService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ownership transfer is not supported here");
         }
 
+        TripMemberRole previousRole = targetMember.getRole();
         targetMember.updateRole(req.role());
         TripMemberEntity saved = tripMemberRepository.save(targetMember);
+        if (previousRole != req.role()) {
+            notifications.emit(currentUserId, targetMember.getTrip(), NotificationType.MEMBER_ROLE_CHANGED,
+                List.of(targetMember.getUserId()), req.role().name(), targetMember.getId(), UUID.randomUUID().toString(), null);
+        }
 
         UserEntity user = userRepository.findById(targetMember.getUserId()).orElse(null);
         return mapToResponse(saved, user);
@@ -154,7 +168,7 @@ public class TripMemberService {
 
     @Transactional
     public void removeMember(Long currentUserId, Long tripId, Long memberId) {
-        getActiveTrip(tripId);
+        getActiveTripForUpdate(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
         if (caller.getRole() != TripMemberRole.OWNER && caller.getRole() != TripMemberRole.VICE) {
@@ -176,13 +190,17 @@ public class TripMemberService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vice cannot remove another Vice");
         }
 
+        boolean wasInvitation = notifications.hasRecipientInvitation(targetMember.getId());
         targetMember.remove();
         tripMemberRepository.save(targetMember);
+        notifications.cancelInvitations(targetMember.getId());
+        if (!wasInvitation) notifications.emit(currentUserId, targetMember.getTrip(), NotificationType.MEMBER_REMOVED,
+            List.of(targetMember.getUserId()), "", null, UUID.randomUUID().toString(), null);
     }
 
     @Transactional
     public void leaveTrip(Long currentUserId, Long tripId) {
-        getActiveTrip(tripId);
+        getActiveTripForUpdate(tripId);
         TripMemberEntity caller = getMemberOrThrow(tripId, currentUserId);
 
         if (caller.getRole() == TripMemberRole.OWNER) {
@@ -191,6 +209,16 @@ public class TripMemberService {
 
         caller.leave();
         tripMemberRepository.save(caller);
+        List<Long> managers = tripMemberRepository.findAllByTrip_IdAndStatus(tripId, TripMemberStatus.ACTIVE).stream()
+            .filter(m -> !m.isDel() && m.getRole().canManageTrip()).map(TripMemberEntity::getUserId).toList();
+        notifications.emit(currentUserId, caller.getTrip(), NotificationType.MEMBER_LEFT, managers,
+            "", null, UUID.randomUUID().toString(), null);
+    }
+
+    private TripEntity getActiveTripForUpdate(Long tripId) {
+        return tripRepository.findByIdForUpdate(tripId)
+            .filter(trip -> !trip.isDel() && trip.getStatus() != com.tripbudget.tripbudget_core.trip.enums.TripStatus.DELETED)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found"));
     }
 
     private TripEntity getActiveTrip(Long tripId) {
@@ -213,6 +241,9 @@ public class TripMemberService {
     }
 
     private TripMemberResponse mapToResponse(TripMemberEntity member, UserEntity user) {
+        return mapToResponse(member, user, notifications.hasRecipientInvitation(member.getId()));
+    }
+    private TripMemberResponse mapToResponse(TripMemberEntity member, UserEntity user, boolean requiresInviteeResponse) {
         String name = user != null ? user.getName() : "Unknown Member";
         String email = user != null ? user.getEmail() : "";
         String avatarUrl = user != null ? user.getAvatarUrl() : null;
@@ -227,7 +258,8 @@ public class TripMemberService {
                 member.getRole(),
                 member.getStatus(),
                 member.getJoinedAt(),
-                member.getCreatedAt()
+                member.getCreatedAt(),
+                requiresInviteeResponse
         );
     }
 }

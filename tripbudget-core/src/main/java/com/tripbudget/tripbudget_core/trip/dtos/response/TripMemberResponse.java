@@ -15,5 +15,6 @@ public record TripMemberResponse(
         TripMemberRole role,
         TripMemberStatus status,
         Instant joinedAt,
-        Instant createdAt
+        Instant createdAt,
+        boolean requiresInviteeResponse
 ) {}

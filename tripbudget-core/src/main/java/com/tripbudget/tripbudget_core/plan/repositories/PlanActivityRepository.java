@@ -16,6 +16,14 @@ import java.util.Optional;
 @Repository
 public interface PlanActivityRepository extends JpaRepository<PlanActivityEntity, Long> {
 
+    @Query("""
+        select a from PlanActivityEntity a join fetch a.day d
+        where a.tripId = :tripId and a.isDel = false and d.isDel = false
+          and a.status = com.tripbudget.tripbudget_core.plan.enums.ActivityStatus.PLANNED
+          and a.startTime is not null and d.planDate between :fromDate and :toDate
+        """)
+    List<PlanActivityEntity> findReminderCandidates(Long tripId, java.time.LocalDate fromDate, java.time.LocalDate toDate);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM PlanActivityEntity a WHERE a.id = :id AND a.tripId = :tripId AND a.isDel = false AND a.day.isDel = false")
     Optional<PlanActivityEntity> findActiveForUpdate(@Param("id") Long id, @Param("tripId") Long tripId);
