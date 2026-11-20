@@ -8,6 +8,7 @@ import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,20 +48,25 @@ public class OtpMailService {
 
     public boolean sendOtp(String to, String otp, String userName) {
         if (user.isBlank() || password.isBlank()) {
-            log.warn("[DEV MODE] Email is not configured. OTP for {} is: {}", to, otp);
-            return true;
+            log.warn("Unable to send OTP email: SMTP credentials are not configured");
+            return false;
         }
         try {
             var message = sender.createMimeMessage();
-            var helper = new MimeMessageHelper(message, StandardCharsets.UTF_8.name());
+            var helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(from);
             helper.setTo(to);
             helper.setSubject("[Vi Vu] Mã xác thực tài khoản / Verification Code: " + otp);
-            helper.setText(template.replace("{{userName}}", userName).replace("{{otp}}", otp), true);
+            String html = template.replace("{{userName}}", HtmlUtils.htmlEscape(userName))
+                    .replace("{{otp}}", HtmlUtils.htmlEscape(otp));
+            String plainText = "Xin chào " + userName + ",\n\nMã xác thực tài khoản Vi Vu của bạn: " + otp
+                    + "\nMã có hiệu lực trong 5 phút. Không chia sẻ mã này với bất kỳ ai.\n\n"
+                    + "Your Vi Vu verification code: " + otp + "\nValid for 5 minutes. If you did not request it, ignore this email.";
+            helper.setText(plainText, html);
             sender.send(message);
             return true;
         } catch (MessagingException | MailException exception) {
-            // Existing behavior: SMTP failure does not undo registration or delete the OTP.
+            // The caller keeps the account pending and removes the undelivered code.
             log.warn("Unable to send OTP email");
             return false;
         }

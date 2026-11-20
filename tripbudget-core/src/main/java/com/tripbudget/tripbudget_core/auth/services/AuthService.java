@@ -38,7 +38,7 @@ public class AuthService {
     public OtpResponse register(RegisterRequest request) {
         String email = normalizedEmail(request.email());
         UserEntity user = users.findByEmail(email).orElse(null);
-        if (user != null && "ACTIVE".equals(user.getStatus())) {
+        if (user != null && !"INACTIVE".equals(user.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
         String passwordHash = passwords.encode(request.password());
@@ -71,6 +71,7 @@ public class AuthService {
             String otp = redis.opsForValue().get(otpKey(email));
             if (otp == null || !otp.equals(request.otp())) throw new IllegalArgumentException("Invalid OTP");
             UserEntity user = users.findByEmail(email).orElseThrow();
+            if (!"INACTIVE".equals(user.getStatus())) throw new IllegalArgumentException("Account cannot be verified");
             user.activate();
             users.saveAndFlush(user);
             redis.delete(otpKey(email));
@@ -83,9 +84,11 @@ public class AuthService {
     public OtpResponse resendOtp(ResendOtpRequest request) {
         try {
             UserEntity user = users.findByEmail(normalizedEmail(request.email())).orElseThrow();
-            if ("ACTIVE".equals(user.getStatus())) throw new IllegalArgumentException("Account is already active");
+            if (!"INACTIVE".equals(user.getStatus())) throw new IllegalArgumentException("Account cannot receive an OTP");
             sendOtp(user);
             return new OtpResponse(true, user.getEmail(), "OTP has been resent to your email.");
+        } catch (ResponseStatusException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw unauthorized("Failed to resend OTP");
         }
@@ -114,7 +117,10 @@ public class AuthService {
     private void sendOtp(UserEntity user) {
         String otp = Integer.toString(100000 + random.nextInt(900000));
         redis.opsForValue().set(otpKey(user.getEmail()), otp, Duration.ofMinutes(5));
-        mailer.sendOtp(user.getEmail(), otp, user.getName());
+        if (!mailer.sendOtp(user.getEmail(), otp, user.getName())) {
+            redis.delete(otpKey(user.getEmail()));
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Unable to send verification email. Please try again later.");
+        }
     }
 
     private String otpKey(String email) {

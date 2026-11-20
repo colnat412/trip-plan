@@ -34,19 +34,19 @@ export class MailerService {
       return true;
     }
 
-    const mailFrom = process.env.MAIL_FROM || `"TripBudget" <${mailUser}>`;
+    const mailFrom = process.env.MAIL_FROM || `"Vivu" <${mailUser}>`;
 
     const mailOptions = {
       from: mailFrom,
       to,
-      subject: `[TripBudget] Mã xác thực tài khoản / Verification Code: ${otp}`,
+      subject: `[Vivu] Mã xác thực tài khoản / Verification Code: ${otp}`,
       html: `
         <!DOCTYPE html>
         <html lang="vi">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Mã xác thực TripBudget / Verification Code</title>
+          <title>Mã xác thực Vivu / Verification Code</title>
         </head>
         <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0F172A; -webkit-font-smoothing: antialiased;">
           <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 48px 16px;">
@@ -62,7 +62,7 @@ export class MailerService {
                             <span style="color: #FFFFFF; font-size: 16px; font-weight: 800; line-height: 32px;">T</span>
                           </td>
                           <td style="padding-left: 10px; vertical-align: middle;">
-                            <span style="font-size: 18px; font-weight: 700; color: #0F172A; letter-spacing: -0.2px;">TripBudget</span>
+                            <span style="font-size: 18px; font-weight: 700; color: #0F172A; letter-spacing: -0.2px;">ViVu</span>
                           </td>
                         </tr>
                       </table>
@@ -83,9 +83,9 @@ export class MailerService {
                   <tr>
                     <td style="padding-bottom: 24px; font-size: 15px; line-height: 1.6; color: #334155;">
                       Xin chào <strong>${userName}</strong>,<br>
-                      Vui lòng sử dụng mã bảo mật bên dưới để hoàn tất xác thực tài khoản của bạn trên TripBudget.
+                      Vui lòng sử dụng mã bảo mật bên dưới để hoàn tất xác thực tài khoản của bạn trên ViVu.
                       <div style="font-size: 13.5px; color: #64748B; line-height: 1.5; margin-top: 6px;">
-                        Please use the verification code below to complete your account setup on TripBudget.
+                        Please use the verification code below to complete your account setup on ViVu.
                       </div>
                     </td>
                   </tr>

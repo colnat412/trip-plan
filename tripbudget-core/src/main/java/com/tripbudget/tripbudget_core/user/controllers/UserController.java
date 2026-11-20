@@ -6,6 +6,7 @@ import com.tripbudget.tripbudget_core.common.dtos.CurrentUserDto;
 import com.tripbudget.tripbudget_core.user.dtos.request.AcceptPoliciesRequest;
 import com.tripbudget.tripbudget_core.user.dtos.request.UpdateAvatarRequest;
 import com.tripbudget.tripbudget_core.user.dtos.request.UpdateProfileRequest;
+import com.tripbudget.tripbudget_core.user.dtos.request.UpdatePasswordRequest;
 import com.tripbudget.tripbudget_core.user.dtos.response.UserProfileResponse;
 import com.tripbudget.tripbudget_core.user.services.UserAvatarService;
 import com.tripbudget.tripbudget_core.user.services.UserService;
@@ -23,6 +24,14 @@ import java.util.UUID;
 public class UserController {
     private final UserService users;
     private final UserAvatarService avatars;
+
+    @PatchMapping("/password")
+    public ApiResponse<UserProfileResponse> updatePassword(
+            @CurrentUser CurrentUserDto user, @Valid @RequestBody UpdatePasswordRequest request
+    ) {
+        Long currentUserId = user.id();
+        return ApiResponse.success(HttpStatus.OK, "Success", users.updatePassword(currentUserId, request));
+    }
 
     @PostMapping("/policies/accept")
     public ResponseEntity<ApiResponse<UserProfileResponse>> acceptPolicies(

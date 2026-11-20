@@ -14,6 +14,7 @@ import com.tripbudget.tripbudget_core.common.dtos.CurrentUserDto;
 import com.tripbudget.tripbudget_core.user.dtos.response.UserProfileResponse;
 import com.tripbudget.tripbudget_core.user.services.UserService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -32,19 +33,19 @@ public class AuthController {
     private final AuthSettings settings;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<OtpResponse>> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiResponse<OtpResponse>> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "Success", auth.register(request)));
     }
 
     @PostMapping("/resend-otp")
-    public ResponseEntity<ApiResponse<OtpResponse>> resendOtp(@RequestBody ResendOtpRequest request) {
+    public ResponseEntity<ApiResponse<OtpResponse>> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(HttpStatus.CREATED, "Success", auth.resendOtp(request)));
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@RequestBody VerifyOtpRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
         return signedIn(auth.verifyOtp(request));
     }
 

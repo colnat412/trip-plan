@@ -83,6 +83,14 @@ public class UserEntity {
         this.name = name;
     }
 
+    public boolean hasPassword() {
+        return password != null && !password.isBlank();
+    }
+
+    public void updatePassword(String passwordHash) {
+        this.password = passwordHash;
+    }
+
     public void updateAvatar(UUID uploadId, String url) {
         avatarUploadId = uploadId;
         avatarUrl = url;

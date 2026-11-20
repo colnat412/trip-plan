@@ -6,5 +6,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public record UserProfileResponse(
         String id, String email, String name, String avatarUrl,
-        Instant policiesAcceptedAt, String policiesVersion, String requiredPolicyVersion
+        Instant policiesAcceptedAt, String policiesVersion, String requiredPolicyVersion,
+        boolean hasPassword
 ) {}
