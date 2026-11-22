@@ -9,6 +9,7 @@ import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
 import com.tripbudget.tripbudget_core.trip.entities.TripMemberEntity;
 import com.tripbudget.tripbudget_core.trip.enums.TripMemberRole;
 import com.tripbudget.tripbudget_core.trip.enums.TripMemberStatus;
+import com.tripbudget.tripbudget_core.trip.enums.TripStatus;
 import com.tripbudget.tripbudget_core.trip.repositories.TripMemberRepository;
 import com.tripbudget.tripbudget_core.trip.repositories.TripRepository;
 import com.tripbudget.tripbudget_core.user.entities.UserEntity;
@@ -217,7 +218,7 @@ public class TripMemberService {
 
     private TripEntity getActiveTripForUpdate(Long tripId) {
         return tripRepository.findByIdForUpdate(tripId)
-            .filter(trip -> !trip.isDel() && trip.getStatus() != com.tripbudget.tripbudget_core.trip.enums.TripStatus.DELETED)
+            .filter(trip -> !trip.isDel() && trip.getStatus() != TripStatus.DELETED)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found"));
     }
 

@@ -5,6 +5,7 @@ import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
 import com.tripbudget.tripbudget_core.common.dtos.CurrentUserDto;
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.settlement.dtos.request.CreateSettlementRequest;
+import com.tripbudget.tripbudget_core.settlement.dtos.request.RespondSettlementRequest;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.SettlementResponse;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.TripSettlementSummaryResponse;
 import com.tripbudget.tripbudget_core.settlement.services.SettlementService;
@@ -75,9 +76,22 @@ public class SettlementController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
-                "Settlement deleted successfully",
+                "Settlement deletion requested",
                 null
         ));
+    }
+
+    @PostMapping("/{settlementId}/respond")
+    public ResponseEntity<ApiResponse<SettlementResponse>> respondToSettlement(
+            @PathVariable("tripId") String tripIdHash,
+            @PathVariable("settlementId") String settlementIdHash,
+            @Valid @RequestBody RespondSettlementRequest request,
+            @CurrentUser CurrentUserDto user
+    ) {
+        Long currentUserId = user.id();
+        SettlementResponse response = settlementService.respondToSettlement(currentUserId,
+                hashidsService.decode(tripIdHash), hashidsService.decode(settlementIdHash), request.action());
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Settlement response saved", response));
     }
 }
 

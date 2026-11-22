@@ -16,6 +16,8 @@ import com.tripbudget.tripbudget_core.settlement.dtos.response.SuggestedSettleme
 import com.tripbudget.tripbudget_core.settlement.dtos.response.TripSettlementSummaryResponse;
 import com.tripbudget.tripbudget_core.settlement.entities.SettlementEntity;
 import com.tripbudget.tripbudget_core.settlement.enums.PaymentMethod;
+import com.tripbudget.tripbudget_core.settlement.enums.SettlementAction;
+import com.tripbudget.tripbudget_core.settlement.enums.SettlementStatus;
 import com.tripbudget.tripbudget_core.settlement.repositories.SettlementRepository;
 import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
 import com.tripbudget.tripbudget_core.trip.entities.TripMemberEntity;
@@ -102,7 +104,9 @@ public class SettlementService {
         BigDecimal totalSettled = BigDecimal.ZERO;
 
         for (SettlementEntity s : settlements) {
-            if (s.isDel()) continue;
+            activeUserIds.add(s.getPayerId());
+            activeUserIds.add(s.getPayeeId());
+            if (s.isDel() || !s.getStatus().affectsBalance()) continue;
             BigDecimal amt = s.getAmount() != null ? s.getAmount() : BigDecimal.ZERO;
             totalSettled = totalSettled.add(amt);
 
@@ -229,7 +233,7 @@ public class SettlementService {
         );
 
         SettlementEntity saved = settlementRepository.save(settlement);
-        notifications.emit(currentUserId, trip, NotificationType.SETTLEMENT_RECORDED, List.of(payerId, payeeId),
+        notifications.emit(currentUserId, trip, NotificationType.SETTLEMENT_CONFIRMATION_REQUIRED, List.of(saved.confirmationUserId()),
             saved.getAmount().toPlainString() + " " + saved.getCurrency(), saved.getId(), UUID.randomUUID().toString(), null);
         Map<Long, UserEntity> userMap = getUserMap(Set.of(payerId, payeeId));
         return mapToSettlementResponse(saved, userMap);
@@ -243,18 +247,39 @@ public class SettlementService {
         SettlementEntity settlement = settlementRepository.findByIdAndTripIdAndIsDelFalse(settlementId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Settlement transaction not found"));
 
-        var member = permissions.requireActiveMember(tripId, currentUserId);
-        boolean ownPayment = currentUserId.equals(settlement.getCreatedBy())
-                && currentUserId.equals(settlement.getPayerId());
-        if (!member.getRole().canManageTrip() && !ownPayment) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to delete this settlement");
+        if (!currentUserId.equals(settlement.getCreatedBy())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the creator can request deletion");
         }
-
-        notifications.emit(currentUserId, getValidTrip(tripId), NotificationType.SETTLEMENT_DELETED,
-            List.of(settlement.getPayerId(), settlement.getPayeeId()),
-            settlement.getAmount().toPlainString() + " " + settlement.getCurrency(), null, UUID.randomUUID().toString(), null);
-        settlement.markDeleted();
+        if (settlement.getStatus() != SettlementStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only confirmed payments can request deletion");
+        }
+        settlement.requestDeletion();
+        notifications.emit(currentUserId, getValidTrip(tripId), NotificationType.SETTLEMENT_CONFIRMATION_REQUIRED,
+            List.of(settlement.confirmationUserId()), settlement.getAmount().toPlainString() + " " + settlement.getCurrency(),
+            settlement.getId(), UUID.randomUUID().toString(), null);
         settlementRepository.save(settlement);
+    }
+
+    @Transactional
+    public SettlementResponse respondToSettlement(Long currentUserId, Long tripId, Long settlementId, SettlementAction action) {
+        TripEntity trip = getValidTrip(tripId);
+        validateMembership(tripId, currentUserId);
+        SettlementEntity settlement = settlementRepository.findByIdAndTripIdAndIsDelFalse(settlementId, tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Settlement transaction not found"));
+        Long permittedUser = action == SettlementAction.CANCEL ? settlement.getCreatedBy() : settlement.confirmationUserId();
+        if (!currentUserId.equals(permittedUser)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot respond to this settlement");
+        }
+        if (settlement.getStatus() != SettlementStatus.PENDING && settlement.getStatus() != SettlementStatus.DELETE_PENDING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Settlement is no longer awaiting confirmation");
+        }
+        settlement.respond(action);
+        settlementRepository.save(settlement);
+        notifications.emit(currentUserId, trip,
+            settlement.isDel() ? NotificationType.SETTLEMENT_DELETED : NotificationType.SETTLEMENT_UPDATED,
+            List.of(settlement.getPayerId(), settlement.getPayeeId()), settlement.getAmount().toPlainString() + " " + settlement.getCurrency(),
+            settlement.getId(), UUID.randomUUID().toString(), null);
+        return mapToSettlementResponse(settlement, getUserMap(Set.of(settlement.getPayerId(), settlement.getPayeeId())));
     }
 
     private List<SuggestedSettlementResponse> computeSuggestedSettlements(
@@ -377,7 +402,9 @@ public class SettlementService {
                 s.getPaymentMethod(),
                 s.getNote(),
                 s.getReceiptUrl(),
-                s.getCreatedAt()
+                s.getCreatedAt(),
+                s.getStatus(),
+                hashidsService.encode(s.confirmationUserId())
         );
     }
 }

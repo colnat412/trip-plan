@@ -105,8 +105,27 @@ public class BudgetService {
         TripEntity trip = getValidTrip(tripId);
         permissions.requireManager(tripId, currentUserId);
 
-        BudgetEntity budget = budgetRepository.findByTripIdAndIsDelFalse(tripId)
+        BudgetEntity budget = budgetRepository.findForUpdate(tripId)
                 .orElseGet(() -> BudgetEntity.create(tripId, req.totalBudget(), req.currency()));
+
+        // Requests may update only some categories. Validate the resulting limits,
+        // including the saved categories omitted from this request, before writing.
+        Map<ExpenseCategory, BigDecimal> limits = new EnumMap<>(ExpenseCategory.class);
+        for (CategoryBudgetEntity category : budget.getCategoryBudgets()) {
+            if (!category.isDel()) limits.put(category.getCategory(), category.getLimitAmount());
+        }
+        if (req.categoryLimits() != null) {
+            for (var entry : req.categoryLimits().entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null || entry.getValue().signum() < 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category limits must be non-negative amounts");
+                }
+                limits.put(entry.getKey(), entry.getValue());
+            }
+        }
+        BigDecimal allocated = limits.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (req.totalBudget() == null || req.totalBudget().signum() < 0 || allocated.compareTo(req.totalBudget()) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category limits cannot exceed the total budget");
+        }
 
         budget.update(req.totalBudget(), req.currency() != null ? req.currency() : trip.getBaseCurrency());
 

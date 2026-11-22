@@ -23,6 +23,7 @@ import com.tripbudget.tripbudget_core.trip.events.PublicTripChangedEvent;
 import com.tripbudget.tripbudget_core.trip.repositories.TripMemberRepository;
 import com.tripbudget.tripbudget_core.trip.repositories.TripRepository;
 import com.tripbudget.tripbudget_core.trip.specifications.TripSpecifications;
+import com.tripbudget.tripbudget_core.trip.dtos.response.TripFilterOptionsResponse;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +42,20 @@ import java.util.Set;
 @Service()
 @Transactional(readOnly = true)
 public class TripService {
+    public TripFilterOptionsResponse getFilterOptions(Long currentUserId) {
+        var options = tripRepository.findFilterOptions(currentUserId);
+        var today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        List<String> destinations = options.stream().map(item -> item.getDestination())
+                .filter(Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty()).distinct().sorted().toList();
+        List<String> currencies = options.stream().map(item -> item.getCurrency())
+                .filter(Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty()).distinct().sorted().toList();
+        List<String> visited = options.stream().filter(item -> item.getStatus() != TripStatus.CANCELLED)
+                .filter(item -> item.getEndDate() != null && !item.getEndDate().isAfter(today))
+                .map(item -> item.getDestination()).filter(Objects::nonNull).map(String::trim)
+                .filter(value -> !value.isEmpty()).distinct().sorted().toList();
+        return new TripFilterOptionsResponse(destinations, currencies, visited);
+    }
+
     private final TripRepository tripRepository;
     private final TripMemberRepository tripMemberRepository;
     private final HashidsService hashidsService;

@@ -1,6 +1,7 @@
 package com.tripbudget.tripbudget_core.settlement.dtos.response;
 
 import com.tripbudget.tripbudget_core.settlement.enums.PaymentMethod;
+import com.tripbudget.tripbudget_core.settlement.enums.SettlementStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,6 +25,8 @@ public record SettlementResponse(
         PaymentMethod paymentMethod,
         String note,
         String receiptUrl,
-        Instant createdAt
+        Instant createdAt,
+        SettlementStatus status,
+        String confirmationUserId
 ) {}
 

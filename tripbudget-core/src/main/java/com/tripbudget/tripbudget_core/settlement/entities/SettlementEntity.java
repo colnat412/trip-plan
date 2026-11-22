@@ -2,6 +2,8 @@ package com.tripbudget.tripbudget_core.settlement.entities;
 
 import com.tripbudget.tripbudget_core.common.entities.BaseEntity;
 import com.tripbudget.tripbudget_core.settlement.enums.PaymentMethod;
+import com.tripbudget.tripbudget_core.settlement.enums.SettlementStatus;
+import com.tripbudget.tripbudget_core.settlement.enums.SettlementAction;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,6 +26,42 @@ import java.util.Locale;
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementEntity extends BaseEntity {
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private SettlementStatus status = SettlementStatus.PENDING;
+
+    // If the recipient records the payment, the payer must confirm instead.
+    public Long confirmationUserId() {
+        return payeeId.equals(createdBy) ? payerId : payeeId;
+    }
+
+    public void requestDeletion() {
+        if (status != SettlementStatus.CONFIRMED) {
+            throw new IllegalStateException("Only confirmed payments can request deletion");
+        }
+        status = SettlementStatus.DELETE_PENDING;
+    }
+
+    public void respond(SettlementAction action) {
+        if (status != SettlementStatus.PENDING && status != SettlementStatus.DELETE_PENDING) {
+            throw new IllegalStateException("Settlement is no longer awaiting confirmation");
+        }
+        if (status == SettlementStatus.DELETE_PENDING) {
+            if (action == SettlementAction.APPROVE) {
+                status = SettlementStatus.DELETED;
+                markDeleted();
+            } else {
+                status = SettlementStatus.CONFIRMED;
+            }
+        } else {
+            status = switch (action) {
+                case APPROVE -> SettlementStatus.CONFIRMED;
+                case REJECT -> SettlementStatus.REJECTED;
+                case CANCEL -> SettlementStatus.CANCELLED;
+            };
+        }
+    }
 
     @Column(name = "created_by", updatable = false)
     private Long createdBy;

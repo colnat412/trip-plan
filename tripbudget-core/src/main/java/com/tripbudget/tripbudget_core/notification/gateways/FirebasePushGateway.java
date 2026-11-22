@@ -1,9 +1,13 @@
 package com.tripbudget.tripbudget_core.notification.gateways;
 
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.firebase.*;
 import com.google.firebase.messaging.*;
+import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.notification.entities.*;
+import com.tripbudget.tripbudget_core.notification.enums.NotificationType;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.io.IOException;
@@ -12,7 +16,7 @@ import java.time.*;
 @Component
 @lombok.RequiredArgsConstructor
 public class FirebasePushGateway {
-    private final com.tripbudget.tripbudget_core.common.services.HashidsService hashids;
+    private final HashidsService hashids;
     @Value("${notifications.firebase.project-id:}") private String projectId;
     @Value("${notifications.web-origin:http://localhost:3000}") private String webOrigin;
     @Value("${GOOGLE_APPLICATION_CREDENTIALS:}") private String credentialsFile;
@@ -32,7 +36,7 @@ public class FirebasePushGateway {
     private GoogleCredentials credentials() throws IOException {
         if (credentialsFile.isBlank()) return GoogleCredentials.getApplicationDefault();
         try (var input = java.nio.file.Files.newInputStream(java.nio.file.Path.of(credentialsFile))) {
-            return com.google.auth.oauth2.ServiceAccountCredentials.fromStream(input);
+            return ServiceAccountCredentials.fromStream(input);
         }
     }
     private synchronized FirebaseMessaging messaging() throws IOException {
@@ -45,7 +49,7 @@ public class FirebasePushGateway {
         }
         return messaging;
     }
-    private String description(com.tripbudget.tripbudget_core.notification.enums.NotificationType type, boolean english) {
+    private String description(NotificationType type, boolean english) {
         return switch (type) {
             case MEMBER_INVITED -> english ? "You have a trip invitation. Accept or decline in Vi Vu." : "Bạn có lời mời tham gia chuyến đi. Mở Vi Vu để chấp nhận hoặc từ chối.";
             case MEMBER_INVITATION_ACCEPTED -> english ? "You accepted the trip invitation." : "Bạn đã chấp nhận lời mời tham gia chuyến đi.";
@@ -66,6 +70,8 @@ public class FirebasePushGateway {
             case EXPENSE_DELETED -> english ? "An expense involving you was deleted." : "Khoản chi liên quan đến bạn đã bị xóa.";
             case SETTLEMENT_RECORDED -> english ? "A payment record involving you was added." : "Có bản ghi khoản trả mới liên quan đến bạn.";
             case SETTLEMENT_DELETED -> english ? "A payment record involving you was deleted." : "Bản ghi khoản trả liên quan đến bạn đã bị xóa.";
+            case SETTLEMENT_CONFIRMATION_REQUIRED -> english ? "A payment request needs your confirmation." : "Có yêu cầu về khoản trả tiền cần bạn xác nhận.";
+            case SETTLEMENT_UPDATED -> english ? "A payment request involving you was updated." : "Yêu cầu về khoản trả tiền liên quan đến bạn đã được cập nhật.";
         };
     }
 

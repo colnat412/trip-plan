@@ -2,6 +2,7 @@ package com.tripbudget.tripbudget_core.trip.repositories;
 
 import com.tripbudget.tripbudget_core.trip.entities.TripEntity;
 import com.tripbudget.tripbudget_core.trip.enums.TripMemberStatus;
+import com.tripbudget.tripbudget_core.trip.repositories.projections.TripFilterOption;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,14 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 
 public interface TripRepository extends JpaRepository<TripEntity, Long>, JpaSpecificationExecutor<TripEntity> {
+    @Query("""
+        SELECT DISTINCT trip.destination AS destination, trip.baseCurrency AS currency, trip.endDate AS endDate, trip.status AS status
+        FROM TripEntity trip JOIN TripMemberEntity tripMember ON tripMember.trip = trip
+        WHERE tripMember.userId = :userId AND tripMember.status = TripMemberStatus.ACTIVE
+          AND tripMember.isDel = false AND trip.isDel = false AND trip.status != TripStatus.DELETED
+        """)
+    List<TripFilterOption> findFilterOptions(Long userId);
+
     @Query(
             value = """
             SELECT trip

@@ -9,6 +9,7 @@ import com.tripbudget.tripbudget_core.trip.dtos.request.TripFilterRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.request.UpdateTripRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.response.PageResponse;
 import com.tripbudget.tripbudget_core.trip.dtos.response.TripResponse;
+import com.tripbudget.tripbudget_core.trip.dtos.response.TripFilterOptionsResponse;
 import com.tripbudget.tripbudget_core.trip.services.TripService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -26,6 +27,14 @@ import org.springframework.web.bind.annotation.*;
 public class TripController {
     private final TripService tripService;
     private final HashidsService hashidsService;
+
+    @GetMapping("/my-trips/filter-options")
+    public ResponseEntity<ApiResponse<TripFilterOptionsResponse>> getFilterOptions(
+            @CurrentUser CurrentUserDto user) {
+        Long currentUserId = user.id();
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Trip filter options retrieved",
+                tripService.getFilterOptions(currentUserId)));
+    }
 
     @PostMapping("/create")
     public ResponseEntity<ApiResponse<TripResponse>> createTrip(@Valid @RequestBody() CreateTripRequest createTripRequest, @CurrentUser CurrentUserDto user) {
