@@ -1,14 +1,16 @@
 package com.tripbudget.tripbudget_core.user.entities;
 
+import com.tripbudget.tripbudget_core.common.entities.BaseEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Table;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
 import org.hibernate.annotations.DynamicUpdate;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -17,11 +19,7 @@ import java.util.UUID;
 @DynamicUpdate
 @Getter
 @NoArgsConstructor
-public class UserEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+public class UserEntity extends BaseEntity {
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -34,6 +32,9 @@ public class UserEntity {
 
     @Column(nullable = false)
     private String status;
+
+    @Column(name = "status_before_deletion", length = 255)
+    private String statusBeforeDeletion;
 
     private String password;
 
@@ -72,6 +73,24 @@ public class UserEntity {
         status = "ACTIVE";
     }
 
+    public void setDisabled(boolean disabled) {
+        if (disabled) {
+            if ("DELETED".equals(status)) return;
+            statusBeforeDeletion = "ACTIVE".equals(status) ? "ACTIVE" : "INACTIVE";
+            status = "DELETED";
+        } else if ("DELETED".equals(status) || "BLOCKED".equals(status)) {
+            // Never infer verification for a legacy disabled account with no saved state.
+            status = "ACTIVE".equals(statusBeforeDeletion) ? "ACTIVE" : "INACTIVE";
+            statusBeforeDeletion = null;
+        }
+    }
+
+    public void changeEmail(String email) {
+        this.email = email;
+        if ("DELETED".equals(status)) statusBeforeDeletion = "INACTIVE";
+        else status = "INACTIVE";
+    }
+
     public void updateGoogleProfile(String picture) {
         if (picture != null && !picture.isEmpty() && (avatarUrl == null || avatarUrl.isEmpty())) {
             avatarUrl = picture;
@@ -96,4 +115,3 @@ public class UserEntity {
         avatarUrl = url;
     }
 }
-

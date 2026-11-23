@@ -101,6 +101,7 @@ public class AuthService {
             String email = profile.email().toLowerCase(Locale.ROOT);
             UserEntity user = users.findByEmail(email).orElseGet(() -> UserEntity.fromGoogle(email,
                     profile.name() == null || profile.name().isEmpty() ? email.split("@")[0] : profile.name(), profile.picture()));
+            if (java.util.Set.of("BLOCKED","DELETED").contains(user.getStatus())) throw unauthorized("Account disabled");
             user.updateGoogleProfile(profile.picture());
             user = users.saveAndFlush(user);
             return signIn(user);

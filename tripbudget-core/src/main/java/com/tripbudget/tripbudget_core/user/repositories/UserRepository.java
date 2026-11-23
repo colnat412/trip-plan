@@ -14,6 +14,18 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
+    long countByStatus(String status);
+    boolean existsByIdAndStatus(Long id, String status);
+
+    @Query("""
+            SELECT user FROM UserEntity user
+            WHERE (:status = '' OR user.status = :status OR (:status = 'DELETED' AND user.status = 'BLOCKED'))
+              AND (:query = '' OR LOWER(user.email) LIKE LOWER(CONCAT('%', :query, '%'))
+                   OR LOWER(user.name) LIKE LOWER(CONCAT('%', :query, '%')))
+            ORDER BY user.id DESC
+            """)
+    org.springframework.data.domain.Page<UserEntity> searchForAdmin(@Param("query") String query,
+            @Param("status") String status, org.springframework.data.domain.Pageable pageable);
     @Query(value = """
             SELECT EXISTS (
                 SELECT 1
@@ -36,7 +48,8 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
             UPDATE UserEntity user
             SET user.policiesAcceptedAt = :acceptedAt,
                 user.policiesVersion = :version,
-                user.policiesLocale = :locale
+                user.policiesLocale = :locale,
+                user.updatedAt = :acceptedAt
             WHERE user.id = :id AND user.policiesAcceptedAt IS NULL
             """)
     int acceptPoliciesIfAbsent(@Param("id") Long id, @Param("acceptedAt") Instant acceptedAt,

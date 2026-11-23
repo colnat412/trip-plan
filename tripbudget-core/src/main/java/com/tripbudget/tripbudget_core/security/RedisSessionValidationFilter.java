@@ -1,10 +1,12 @@
 package com.tripbudget.tripbudget_core.security;
 
+import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -13,8 +15,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -27,25 +27,23 @@ public class RedisSessionValidationFilter extends OncePerRequestFilter {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final com.tripbudget.tripbudget_core.user.repositories.UserRepository users;
 
     public RedisSessionValidationFilter(
             StringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper
-    ) {
+            ObjectMapper objectMapper,
+            com.tripbudget.tripbudget_core.user.repositories.UserRepository users) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.users = users;
     }
 
     @Override
     protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
-        Authentication authentication = SecurityContextHolder
-                .getContext()
-                .getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
             String sessionId = jwtAuth.getToken().getClaimAsString("sid");
@@ -56,32 +54,36 @@ public class RedisSessionValidationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String sessionRaw = redisTemplate
-                    .opsForValue()
-                    .get("auth:session:" + sessionId);
+            String sessionRaw = redisTemplate.opsForValue().get("auth:session:" + sessionId);
 
             if (sessionRaw == null) {
                 reject(response, "Unauthorized");
                 return;
             }
-            String path = request.getServletPath();
-            if (path.startsWith("/auth/") || path.startsWith("/users/") || path.equals("/uploads")) {
-                Instant expiresAt = jwtAuth.getToken().getExpiresAt();
-                if (expiresAt != null && !Instant.now().isBefore(expiresAt)) {
+            Instant expiresAt = jwtAuth.getToken().getExpiresAt();
+            if (expiresAt == null || !Instant.now().isBefore(expiresAt)) {
+                reject(response, "Unauthorized");
+                return;
+            }
+            String sessionUserId;
+            try {
+                sessionUserId = objectMapper.readTree(sessionRaw).path("userId").asString();
+            } catch (RuntimeException exception) {
+                reject(response, "Unauthorized");
+                return;
+            }
+            if (!jwtAuth.getToken().getSubject().equals(sessionUserId)) {
+                reject(response, "Unauthorized");
+                return;
+            }
+            try {
+                if (!users.existsByIdAndStatus(Long.valueOf(sessionUserId), "ACTIVE")) {
                     reject(response, "Unauthorized");
                     return;
                 }
-                String sessionUserId;
-                try {
-                    sessionUserId = objectMapper.readTree(sessionRaw).path("userId").asString();
-                } catch (RuntimeException exception) {
-                    reject(response, "Unauthorized");
-                    return;
-                }
-                if (!jwtAuth.getToken().getSubject().equals(sessionUserId)) {
-                    reject(response, "Unauthorized");
-                    return;
-                }
+            } catch (NumberFormatException exception) {
+                reject(response, "Unauthorized");
+                return;
             }
         }
 
@@ -95,9 +97,9 @@ public class RedisSessionValidationFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
-        ApiResponse<Void> apiRes = ApiResponse.error(
-            HttpStatus.UNAUTHORIZED, 
-            message != null ? message : "Unauthorized");
+        ApiResponse<Void> apiRes =
+                ApiResponse.error(
+                        HttpStatus.UNAUTHORIZED, message != null ? message : "Unauthorized");
 
         response.getWriter().write(objectMapper.writeValueAsString(apiRes));
     }

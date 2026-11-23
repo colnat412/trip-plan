@@ -103,6 +103,41 @@ public class AuthSessionService {
         });
     }
 
+    public record SessionView(String id, Instant createdAt, Instant expiresAt) {}
+
+    public java.util.List<SessionView> listUserSessions(Long userId) {
+        var ids = redis.opsForSet().members(userSessionsKey(userId.toString()));
+        if (ids == null) return java.util.List.of();
+        if (ids.size() > 1000) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "SESSION_LIST_LIMIT");
+        var result = new java.util.ArrayList<SessionView>();
+        for (String id : ids) {
+            SessionData session = ownedSession(userId, id);
+            if (session != null && session.createdAt() != null && session.expiresAt() != null && session.expiresAt().isAfter(Instant.now()))
+                result.add(new SessionView(id, session.createdAt(), session.expiresAt()));
+        }
+        result.sort(java.util.Comparator.comparing(SessionView::createdAt).reversed());
+        return java.util.List.copyOf(result);
+    }
+
+    public boolean revokeOwned(Long userId, String sessionId) {
+        try { UUID.fromString(sessionId); }
+        catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_SESSION_ID");
+        }
+        if (ownedSession(userId, sessionId) == null) return false;
+        revoke(userId.toString(), sessionId);
+        return true;
+    }
+
+    private SessionData ownedSession(Long userId, String sessionId) {
+        String raw = redis.opsForValue().get(sessionKey(sessionId));
+        if (raw == null) return null;
+        SessionData session;
+        try { session = objectMapper.readValue(raw, SessionData.class); }
+        catch (RuntimeException exception) { return null; }
+        return userId.toString().equals(session.userId()) ? session : null;
+    }
+
     private String signAccessToken(String userId, String sessionId) {
         Instant now = Instant.now();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
