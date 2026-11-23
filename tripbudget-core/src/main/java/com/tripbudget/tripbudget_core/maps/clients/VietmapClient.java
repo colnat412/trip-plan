@@ -32,19 +32,30 @@ public class VietmapClient {
     }
 
     public List<MapPlacePredictionResponse> search(String text, boolean regionsOnly) {
+        return search(text, regionsOnly, null);
+    }
+
+    public List<MapPlacePredictionResponse> search(String text, boolean regionsOnly, MapCoordinatesResponse center) {
         Map<String, List<String>> query = createAuthenticatedQuery();
         query.put("text", List.of(text));
         query.put("display_type", List.of("1"));
         if (regionsOnly) {
             query.put("layers", List.of("CITY,DIST,WARD"));
         }
-        JsonNode response = httpClient.get(BASE_URL + "autocomplete/v4", query, false);
+        if (center != null) {
+            String point = center.latitude() + "," + center.longitude();
+            query.put("focus", List.of(point));
+            query.put("circle_center", List.of(point));
+            query.put("circle_radius", List.of("30000"));
+        }
+        JsonNode response = httpClient.get(BASE_URL + "autocomplete/v4", query);
         if (!response.isArray()) {
             throw MapsException.provider();
         }
 
         List<MapPlacePredictionResponse> predictions = new ArrayList<>();
         for (JsonNode place : response) {
+            if (center != null && !isNearby(place, center)) continue;
             String referenceId = place.path("ref_id").asText("");
             String display = place.path("display").asText("");
             if (referenceId.isBlank() || display.isBlank()) {
@@ -64,41 +75,73 @@ public class VietmapClient {
         return predictions;
     }
 
-    public MapCoordinatesResponse geocode(String location) {
-        Map<String, List<String>> query = createAuthenticatedQuery();
-        query.put("text", List.of(location));
-        query.put("display_type", List.of("1"));
-        JsonNode searchResponse = httpClient.get(BASE_URL + "search/v4", query, false);
-        if (!searchResponse.isArray()) {
-            throw MapsException.provider();
-        }
-
-        // Search/Autocomplete trả mã địa điểm; Place mới trả tọa độ.
-        String referenceId = "";
-        if (!searchResponse.isEmpty()) {
-            referenceId = searchResponse.get(0).path("ref_id").asText("");
-        }
-        if (referenceId.isBlank()) {
-            List<MapPlacePredictionResponse> predictions = search(location, false);
-            if (predictions.isEmpty()) {
-                return null;
-            }
-            referenceId = predictions.getFirst().placeId();
-        }
-
-        return placeCoordinates(referenceId);
+    public MapCoordinatesResponse destinationCenter(String destination) {
+        return geocode(destination);
     }
 
-    public MapCoordinatesResponse destinationCenter(String destination) {
-        // Resolve the trip's administrative destination, not an arbitrary similarly named POI.
-        List<MapPlacePredictionResponse> regions = search(destination, true);
-        return regions.isEmpty() ? null : placeCoordinates(regions.getFirst().placeId());
+    public MapCoordinatesResponse geocode(String destination) {
+        String[] parts = destination.split(",");
+        String name = parts[0].trim();
+        List<String> contextParts = new ArrayList<>();
+        for (int index = 1; index < parts.length; index++) {
+            String part = parts[index].trim();
+            if (!Set.of("viet nam", "vietnam", "vn").contains(DiscoveryCategory.normalize(part))) {
+                contextParts.add(part);
+            }
+        }
+        String context = String.join(", ", contextParts);
+        String locality = contextParts.isEmpty() ? "" : locationName(contextParts.getLast());
+        MapPlacePredictionResponse match = matchingDestination(name, context, locality, true);
+        // Provider records can omit a generic feature descriptor. Match the remaining
+        // identity and locality for any destination type, never an unrelated first result.
+        String identity = geographicIdentity(name);
+        if (match == null && !identity.equals(DiscoveryCategory.normalize(name)) && identity.length() >= 3) {
+            match = matchingDestination(identity, context, locality, false);
+        }
+        return match == null ? null : placeCoordinates(match.placeId());
+    }
+
+    private String geographicIdentity(String name) {
+        return DiscoveryCategory.normalize(name).replaceFirst(
+                "^(quang truong|bai bien|khu du lich|khu di tich|cong vien|ho nuoc|nui|thac|square|beach|park|lake|mountain)\\s+", "");
+    }
+
+    private MapPlacePredictionResponse matchingDestination(String name, String context, String locality, boolean preferExact) {
+        String expected = locationName(name);
+        MapPlacePredictionResponse best = null;
+        int bestScore = 0;
+        for (MapPlacePredictionResponse place : search(context.isBlank() ? name : name + ", " + context, false)) {
+            if (!locality.isBlank() && !DiscoveryCategory.normalize(place.description()).contains(locality)) continue;
+            String actual = locationName(place.mainText());
+            String display = locationName(place.description().split(",")[0]);
+            // Saved addresses may contain the venue and road in one comma-delimited part.
+            int score = actual.equals(expected) ? (preferExact ? 4 : 3) : actual.startsWith(expected + " ") ? 3
+                    : display.equals(expected) ? 2 : (" " + display + " ").contains(" " + expected + " ") ? 1 : 0;
+            if (score > bestScore) {
+                best = place;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
+    private String locationName(String value) {
+        String name = DiscoveryCategory.normalize(value)
+                .replaceFirst("^(thanh pho|tp|tinh)\\s+", "")
+                .replaceFirst("\\s+city$", "");
+        return Set.of("tphcm", "tp hcm", "hcm", "saigon", "sai gon").contains(name)
+                ? "ho chi minh" : switch (name) {
+                    case "hanoi" -> "ha noi";
+                    case "danang" -> "da nang";
+                    case "dalat" -> "da lat";
+                    default -> name;
+                };
     }
 
     private MapCoordinatesResponse placeCoordinates(String referenceId) {
         Map<String, List<String>> detailQuery = createAuthenticatedQuery();
         detailQuery.put("refid", List.of(referenceId));
-        JsonNode placeResponse = httpClient.get(BASE_URL + "place/v4", detailQuery, false);
+        JsonNode placeResponse = httpClient.get(BASE_URL + "place/v4", detailQuery);
         return MapResponseMapper.coordinates(placeResponse.path("lat"), placeResponse.path("lng"));
     }
 
@@ -168,17 +211,14 @@ public class VietmapClient {
         query.put("circle_center", List.of(focus));
         query.put("circle_radius", List.of("30000"));
         if (!topic.code().isBlank()) query.put("cats", List.of(topic.code()));
-        JsonNode response = httpClient.get(BASE_URL + "autocomplete/v4", query, false);
+        JsonNode response = httpClient.get(BASE_URL + "autocomplete/v4", query);
         if (!response.isArray()) throw MapsException.provider();
         List<MapPlacePredictionResponse> results = new ArrayList<>();
         List<String> tokens = category.searchTokens(input);
         for (JsonNode place : response) {
             if (!category.accepts(place, topic)) continue;
             if (!input.isBlank() && !matchesDiscoveryInput(place.path("name").asText(""), tokens)) continue;
-            // distance is in kilometers from focus. Missing distance cannot establish locality.
-            JsonNode distance = place.path("distance");
-            if (!distance.isNumber() || !Double.isFinite(distance.asDouble())
-                    || distance.asDouble() < 0 || distance.asDouble() > 30) continue;
+            if (!isNearby(place, center)) continue;
             String referenceId = place.path("ref_id").asText("");
             String display = place.path("display").asText("");
             if (referenceId.isBlank() || display.isBlank()) continue;
@@ -186,6 +226,24 @@ public class VietmapClient {
                     place.path("address").asText(""), display, "vietmap", null));
         }
         return results;
+    }
+
+    private boolean isNearby(JsonNode place, MapCoordinatesResponse center) {
+        MapCoordinatesResponse point = MapResponseMapper.coordinates(place.path("lat"), place.path("lng"));
+        if (point == null) {
+            // Autocomplete v4 normally supplies distance (km) from the requested focus,
+            // not coordinates. Require that measurement instead of guessing by city name.
+            JsonNode distance = place.path("distance");
+            return distance.isNumber() && Double.isFinite(distance.asDouble())
+                    && distance.asDouble() >= 0 && distance.asDouble() <= 30;
+        }
+        double latitude = Math.toRadians(point.latitude() - center.latitude());
+        double longitude = Math.toRadians(point.longitude() - center.longitude());
+        double haversine = Math.pow(Math.sin(latitude / 2), 2)
+                + Math.cos(Math.toRadians(center.latitude())) * Math.cos(Math.toRadians(point.latitude()))
+                * Math.pow(Math.sin(longitude / 2), 2);
+        double kilometers = 6371 * 2 * Math.asin(Math.sqrt(Math.min(1, haversine)));
+        return kilometers <= 30;
     }
 
     private String discoveryIdentity(MapPlacePredictionResponse place) {
@@ -260,7 +318,7 @@ public class VietmapClient {
     }
 
     private JsonNode requestMatrix(Map<String, List<String>> query) {
-        JsonNode response = httpClient.get(BASE_URL + "matrix/v4", query, false);
+        JsonNode response = httpClient.get(BASE_URL + "matrix/v4", query);
         if (!"OK".equals(response.path("code").asText())) {
             throw MapsException.provider();
         }

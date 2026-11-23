@@ -1,6 +1,5 @@
 package com.tripbudget.tripbudget_core.maps.services;
 
-import com.tripbudget.tripbudget_core.maps.clients.OsmMapsClient;
 import com.tripbudget.tripbudget_core.maps.clients.DiscoveryCategory;
 import com.tripbudget.tripbudget_core.maps.cache.MapsResponseCache;
 import com.tripbudget.tripbudget_core.maps.clients.VietmapClient;
@@ -11,7 +10,6 @@ import com.tripbudget.tripbudget_core.maps.dtos.response.MapDistanceMatrixRespon
 import com.tripbudget.tripbudget_core.maps.dtos.response.MapDistanceRowResponse;
 import com.tripbudget.tripbudget_core.maps.dtos.response.MapLocationResponse;
 import com.tripbudget.tripbudget_core.maps.dtos.response.MapLocationResultResponse;
-import com.tripbudget.tripbudget_core.maps.dtos.response.MapPlacePredictionResponse;
 import com.tripbudget.tripbudget_core.maps.dtos.response.MapSearchResponse;
 import com.tripbudget.tripbudget_core.maps.web.MapsException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,13 +17,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,41 +29,39 @@ import java.util.regex.Pattern;
 public class MapsService {
 
     private static final Pattern COORDINATES = Pattern.compile("^(-?\\d+(?:\\.\\d+)?),\\s*(-?\\d+(?:\\.\\d+)?)$");
-    private static final long VIETMAP_RETRY_DELAY_MILLIS = 30_000;
 
     private final VietmapClient vietmapClient;
-    private final OsmMapsClient osmMapsClient;
     private final MapsBudget mapsBudget;
     private final MapsResponseCache responseCache;
-    private final Clock clock;
-    private volatile long retryVietmapAt;
 
     @Autowired
-    public MapsService(VietmapClient vietmapClient, OsmMapsClient osmMapsClient, MapsBudget mapsBudget, MapsResponseCache responseCache) {
-        this(vietmapClient, osmMapsClient, mapsBudget, responseCache, Clock.systemUTC());
-    }
-
-    MapsService(VietmapClient vietmapClient, OsmMapsClient osmMapsClient, MapsBudget mapsBudget, MapsResponseCache responseCache, Clock clock) {
+    public MapsService(VietmapClient vietmapClient, MapsBudget mapsBudget, MapsResponseCache responseCache) {
         this.vietmapClient = vietmapClient;
-        this.osmMapsClient = osmMapsClient;
         this.mapsBudget = mapsBudget;
         this.responseCache = responseCache;
-        this.clock = clock;
     }
 
     public MapSearchResponse search(Long currentUserId, String input, String language, boolean regionsOnly) {
+        return search(currentUserId, input, language, regionsOnly, "");
+    }
+
+    public MapSearchResponse search(Long currentUserId, String input, String language, boolean regionsOnly, String destination) {
         requireUser(currentUserId);
         String query = validateText(input, 250);
         if (query.length() < 2) {
-            return new MapSearchResponse(List.of(), null);
+            return new MapSearchResponse(List.of(), "vietmap");
         }
         mapsBudget.consume(currentUserId, 0);
         String searchLanguage = normalizeLanguage(language);
+        String context = regionsOnly ? "" : validateText(destination, 250);
 
-        return responseCache.search(query, searchLanguage, regionsOnly, () -> withFallback(
-                () -> searchVietmap(query, regionsOnly),
-                () -> new MapSearchResponse(osmMapsClient.search(query, searchLanguage, regionsOnly), "osm")
-        ));
+        requireVietmap();
+        return responseCache.search(query, searchLanguage, regionsOnly, context, () -> {
+            if (context.isBlank()) return new MapSearchResponse(vietmapClient.search(query, regionsOnly), "vietmap");
+            MapLocationResponse location = findLocation(context, searchLanguage);
+            if (location == null) return new MapSearchResponse(List.of(), "vietmap");
+            return new MapSearchResponse(vietmapClient.search(query, false, location.coordinates()), "vietmap");
+        });
     }
 
     public MapLocationResultResponse location(Long currentUserId, String input, String language) {
@@ -79,13 +73,11 @@ public class MapsService {
         MapCoordinatesResponse coordinates = parseCoordinates(query);
         mapsBudget.consume(currentUserId, 0);
         if (coordinates != null) {
-            return new MapLocationResultResponse(new MapLocationResponse(coordinates, "osm"));
+            return new MapLocationResultResponse(new MapLocationResponse(coordinates, "vietmap"));
         }
 
-        MapLocationResponse location = withFallback(
-                () -> findLocation(query, normalizeLanguage(language), "vietmap"),
-                () -> findLocation(query, normalizeLanguage(language), "osm")
-        );
+        requireVietmap();
+        MapLocationResponse location = findLocation(query, normalizeLanguage(language));
         return new MapLocationResultResponse(location);
     }
 
@@ -101,14 +93,9 @@ public class MapsService {
             return new MapSearchResponse(List.of(), "vietmap");
         }
         // Discovery must retain classification and locality. Never fall back to unfiltered search.
-        if (!vietmapClient.configured()) throw MapsException.provider();
+        requireVietmap();
         return responseCache.discovery(context, term, category.name(), normalizeLanguage(language), () -> {
-            MapLocationResponse location = responseCache.location("discovery:" + context,
-                    normalizeLanguage(language), "vietmap", () -> {
-                        MapCoordinatesResponse coordinates = vietmapClient.destinationCenter(context);
-                        return new MapLocationResultResponse(coordinates == null ? null
-                                : new MapLocationResponse(coordinates, "vietmap"));
-                    }).location();
+            MapLocationResponse location = findLocation(context, normalizeLanguage(language));
             if (location == null) return new MapSearchResponse(List.of(), "vietmap");
             return new MapSearchResponse(vietmapClient.discover(context, term, category, location.coordinates()), "vietmap");
         });
@@ -136,41 +123,25 @@ public class MapsService {
         }
         mapsBudget.consume(currentUserId, origins.size() * destinations.size());
 
-        return responseCache.distance(origins, destinations, language, destinationContext, () -> withFallback(
-                () -> calculateMatrix(origins, destinations, language, destinationContext, "vietmap"),
-                () -> calculateMatrix(origins, destinations, language, destinationContext, "osm")
-        ));
+        requireVietmap();
+        return responseCache.distance(origins, destinations, language, destinationContext,
+                () -> calculateMatrix(origins, destinations, language, destinationContext));
     }
 
-    private MapSearchResponse searchVietmap(String query, boolean regionsOnly) {
-        List<MapPlacePredictionResponse> predictions = vietmapClient.search(query, regionsOnly);
-        if (predictions.isEmpty()) {
-            return null;
-        }
-        return new MapSearchResponse(predictions, "vietmap");
+    private MapLocationResponse findLocation(String address, String language) {
+        return responseCache.location(address, language, "vietmap",
+                () -> new MapLocationResultResponse(resolveLocation(address))).location();
     }
 
-    private MapLocationResponse findLocation(String address, String language, String source) {
-        return responseCache.location(address, language, source,
-                () -> new MapLocationResultResponse(resolveProviderLocation(address, language, source))).location();
-    }
-
-    private MapLocationResponse resolveProviderLocation(String address, String language, String source) {
-        MapCoordinatesResponse coordinates;
-        if ("vietmap".equals(source)) {
-            coordinates = vietmapClient.geocode(address);
-        } else {
-            List<MapPlacePredictionResponse> predictions = osmMapsClient.search(address, language, false);
-            coordinates = predictions.isEmpty() ? null : predictions.getFirst().coordinates();
-        }
-        if (coordinates == null) {
-            return null;
-        }
-        return new MapLocationResponse(coordinates, source);
+    private MapLocationResponse resolveLocation(String address) {
+        MapCoordinatesResponse coordinates = parseCoordinates(address);
+        if (coordinates == null) coordinates = vietmapClient.geocode(address);
+        return coordinates == null ? null : new MapLocationResponse(coordinates, "vietmap");
     }
 
     private MapDistanceMatrixResponse calculateMatrix(List<String> origins, List<String> destinations,
-            String language, String destinationContext, String source) {
+            String language, String destinationContext) {
+        String source = "vietmap";
         Map<String, MapCoordinatesResponse> resolvedCoordinates = new LinkedHashMap<>();
         List<String> allLocations = new ArrayList<>(origins);
         allLocations.addAll(destinations);
@@ -182,11 +153,8 @@ public class MapsService {
             MapCoordinatesResponse coordinates = parseCoordinates(location);
             if (coordinates == null) {
                 String address = appendDestinationContext(location, destinationContext);
-                MapLocationResponse resolvedLocation = findLocation(address, language, source);
+                MapLocationResponse resolvedLocation = findLocation(address, language);
                 coordinates = resolvedLocation == null ? null : resolvedLocation.coordinates();
-            }
-            if (coordinates == null && "vietmap".equals(source)) {
-                return null;
             }
             resolvedCoordinates.put(location, coordinates);
         }
@@ -204,12 +172,7 @@ public class MapsService {
                 destinationPoints.add(resolvedCoordinates.get(destinations.get(destinationIndex)));
             }
 
-            List<MapDistanceRowResponse> providerRows;
-            if ("vietmap".equals(source)) {
-                providerRows = vietmapClient.matrix(originPoints, destinationPoints, language);
-            } else {
-                providerRows = osmMapsClient.matrix(originPoints, destinationPoints, language);
-            }
+            List<MapDistanceRowResponse> providerRows = vietmapClient.matrix(originPoints, destinationPoints, language);
 
             for (int rowIndex = 0; rowIndex < originIndices.size(); rowIndex++) {
                 int originalRowIndex = originIndices.get(rowIndex);
@@ -221,9 +184,6 @@ public class MapsService {
             }
         }
 
-        if ("vietmap".equals(source) && hasMissingRoutes(rows)) {
-            return null;
-        }
         return new MapDistanceMatrixResponse("OK", source, origins, destinations, rows);
     }
 
@@ -259,32 +219,9 @@ public class MapsService {
         return rows;
     }
 
-    private boolean hasMissingRoutes(List<MapDistanceRowResponse> rows) {
-        for (MapDistanceRowResponse row : rows) {
-            for (MapDistanceElementResponse element : row.elements()) {
-                if (!"OK".equals(element.status())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private <T> T withFallback(Supplier<T> vietmapRequest, Supplier<T> osmRequest) {
+    private void requireVietmap() {
         checkInterrupted();
-        if (vietmapClient.configured() && clock.millis() >= retryVietmapAt) {
-            try {
-                T result = vietmapRequest.get();
-                if (result != null) {
-                    return result;
-                }
-            } catch (MapsException exception) {
-                checkInterrupted();
-                retryVietmapAt = clock.millis() + VIETMAP_RETRY_DELAY_MILLIS;
-            }
-        }
-        checkInterrupted();
-        return osmRequest.get();
+        if (!vietmapClient.configured()) throw MapsException.provider();
     }
 
     private MapCoordinatesResponse parseCoordinates(String value) {

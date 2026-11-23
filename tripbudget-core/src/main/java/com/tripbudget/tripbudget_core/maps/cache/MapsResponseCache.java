@@ -49,8 +49,8 @@ public class MapsResponseCache {
         this.clock = clock;
     }
 
-    public MapSearchResponse search(String query, String language, boolean regionsOnly, Supplier<MapSearchResponse> fetch) {
-        return cached(List.of("search", query, language, regionsOnly), MapSearchResponse.class,
+    public MapSearchResponse search(String query, String language, boolean regionsOnly, String context, Supplier<MapSearchResponse> fetch) {
+        return cached(List.of("search", query, language, regionsOnly, context), MapSearchResponse.class,
                 result -> result.predictions().isEmpty() ? Duration.ofSeconds(30) : Duration.ofMinutes(5), fetch);
     }
 
@@ -61,7 +61,7 @@ public class MapsResponseCache {
 
     public MapSearchResponse discovery(String destination, String input, String category, String language,
             Supplier<MapSearchResponse> fetch) {
-        return cached(List.of("discovery", "v2", destination, input, category, language), MapSearchResponse.class,
+        return cached(List.of("discovery", "v4", destination, input, category, language), MapSearchResponse.class,
                 result -> result.predictions().isEmpty() ? Duration.ofSeconds(30) : Duration.ofMinutes(5), fetch);
     }
 
@@ -73,7 +73,7 @@ public class MapsResponseCache {
     }
 
     private <T> T cached(List<?> parameters, Class<T> type, Function<T, Duration> lifetime, Supplier<T> fetch) {
-        String key = "maps:response:v1:" + digest(mapper.writeValueAsString(parameters));
+        String key = "maps:response:v3:geographic:" + digest(mapper.writeValueAsString(parameters));
         Object[] operationLocks = locks.get(parameters.getFirst());
         synchronized (operationLocks[Math.floorMod(key.hashCode(), operationLocks.length)]) {
             String json = readLocal(key);

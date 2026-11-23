@@ -31,13 +31,14 @@ public class MapsController {
             @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "vi") String lang,
             @RequestParam(defaultValue = "false") String regionsOnly,
+            @RequestParam(defaultValue = "") String destination,
             @CurrentUser CurrentUserDto user
     ) {
         Long currentUserId = user.id();
         if (!"true".equals(regionsOnly) && !"false".equals(regionsOnly)) {
             throw MapsException.invalid("regionsOnly must be true or false.");
         }
-        MapSearchResponse response = mapsService.search(currentUserId, q, lang, Boolean.parseBoolean(regionsOnly));
+        MapSearchResponse response = mapsService.search(currentUserId, q, lang, Boolean.parseBoolean(regionsOnly), destination);
         return success(response);
     }
 

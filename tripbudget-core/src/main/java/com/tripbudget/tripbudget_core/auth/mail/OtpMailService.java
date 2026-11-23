@@ -63,6 +63,7 @@ public class OtpMailService {
                     + "\nMã có hiệu lực trong 5 phút. Không chia sẻ mã này với bất kỳ ai.\n\n"
                     + "Your Vi Vu verification code: " + otp + "\nValid for 5 minutes. If you did not request it, ignore this email.";
             helper.setText(plainText, html);
+            helper.addInline("vivu-logo", new ClassPathResource("templates/mail/vi-vu-logo.png"), "image/png");
             sender.send(message);
             return true;
         } catch (MessagingException | MailException exception) {

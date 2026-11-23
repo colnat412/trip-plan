@@ -4,7 +4,6 @@ import com.tripbudget.tripbudget_core.maps.config.MapsSettings;
 import com.tripbudget.tripbudget_core.maps.web.MapsException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -17,7 +16,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -27,13 +25,10 @@ import java.util.StringJoiner;
 public class MapsHttpClient {
 
     private static final int RESPONSE_LIMIT_BYTES = 1024 * 1024;
-    private static final long PUBLIC_REQUEST_INTERVAL_MILLIS = 1000;
-    private static final long PUBLIC_MAX_WAIT_MILLIS = 4000;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final MapsSettings settings;
-    private final Map<String, Long> publicRequestSlots = new HashMap<>();
 
     @Autowired
     public MapsHttpClient(ObjectMapper objectMapper, MapsSettings settings) {
@@ -49,14 +44,11 @@ public class MapsHttpClient {
         this.settings = settings;
     }
 
-    public JsonNode get(String baseUrl, Map<String, List<String>> query, boolean publicServer) {
+    public JsonNode get(String baseUrl, Map<String, List<String>> query) {
         try {
             URI uri = buildUri(baseUrl, query);
             if (!"https".equals(uri.getScheme()) && (settings.isRequireHttps() || !"http".equals(uri.getScheme()))) {
                 throw MapsException.provider();
-            }
-            if (publicServer) {
-                reservePublicSlot(uri.getHost());
             }
             if (Thread.currentThread().isInterrupted()) {
                 throw MapsException.provider();
@@ -114,19 +106,4 @@ public class MapsHttpClient {
         }
     }
 
-    private void reservePublicSlot(String host) throws InterruptedException {
-        long waitMillis;
-        synchronized (publicRequestSlots) {
-            long now = System.currentTimeMillis();
-            long nextSlot = Math.max(now, publicRequestSlots.getOrDefault(host, now));
-            waitMillis = nextSlot - now;
-            if (waitMillis > PUBLIC_MAX_WAIT_MILLIS) {
-                throw new MapsException(HttpStatus.SERVICE_UNAVAILABLE, "MAPS_BUSY", "Map search is busy. Please try again.");
-            }
-            publicRequestSlots.put(host, nextSlot + PUBLIC_REQUEST_INTERVAL_MILLIS);
-        }
-        if (waitMillis > 0) {
-            Thread.sleep(waitMillis);
-        }
-    }
 }
