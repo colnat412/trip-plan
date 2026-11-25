@@ -41,7 +41,7 @@ public class PlanDayEntity extends BaseEntity {
     private String note;
 
     @OneToMany(mappedBy = "day", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("startTime ASC, orderIndex ASC, createdAt ASC, id ASC")
+    @OrderBy("orderIndex ASC, startTime ASC, createdAt ASC, id ASC")
     private List<PlanActivityEntity> activities = new ArrayList<>();
 
     public static PlanDayEntity create(
