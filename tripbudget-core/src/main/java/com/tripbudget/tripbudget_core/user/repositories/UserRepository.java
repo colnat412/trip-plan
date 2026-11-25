@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
+    boolean existsByIdAndPasswordAndStatus(Long id, String password, String status);
     long countByStatus(String status);
     boolean existsByIdAndStatus(Long id, String status);
 

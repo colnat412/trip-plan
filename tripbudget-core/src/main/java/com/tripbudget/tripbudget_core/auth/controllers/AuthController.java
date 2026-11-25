@@ -32,6 +32,31 @@ public class AuthController {
     private final AuthSessionService sessions;
     private final UserService users;
     private final AuthSettings settings;
+    private final com.tripbudget.tripbudget_core.auth.services.PasswordResetService passwordReset;
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordReset.request(request.email());
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.success(HttpStatus.OK, "If the account is eligible, a reset code will be sent.", null));
+    }
+
+    public record ResetCodeResult(String resetToken) {
+        @Override public String toString() { return "ResetCodeResult[REDACTED]"; }
+    }
+
+    @PostMapping("/verify-reset-code")
+    public ResponseEntity<ApiResponse<ResetCodeResult>> verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request) {
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.success(HttpStatus.OK, "Code verified", new ResetCodeResult(passwordReset.verify(request.email(), request.otp()))));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordReset.reset(request);
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(ApiResponse.success(HttpStatus.OK, "Password reset. Please sign in again.", null));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<OtpResponse>> register(@Valid @RequestBody RegisterRequest request) {

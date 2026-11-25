@@ -215,6 +215,12 @@ public class AuthSessionService {
         if (ownedSession(userId, sessionId) != null) deleteSession(userId.toString(), sessionId);
     }
 
+    public void revokeForPasswordReset(Long userId, String sessionId) {
+        if (ownedSession(userId, sessionId) == null) return;
+        deleteSession(userId.toString(), sessionId);
+        recordEnd(userId, sessionId, "REVOKED");
+    }
+
     private SessionData ownedSession(Long userId, String sessionId) {
         String raw = redis.opsForValue().get(sessionKey(sessionId));
         if (raw == null) return null;

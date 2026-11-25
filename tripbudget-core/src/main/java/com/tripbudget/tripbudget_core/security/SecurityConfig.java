@@ -30,7 +30,7 @@ import java.util.Set;
 @EnableWebSecurity
 public class SecurityConfig {
     private static final Set<String> PUBLIC_AUTH_ENDPOINTS = Set.of("/auth/register", "/auth/login", "/auth/google",
-            "/auth/verify-otp", "/auth/resend-otp", "/auth/refresh");
+            "/auth/verify-otp", "/auth/resend-otp", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-reset-code");
     private final DefaultBearerTokenResolver bearerTokens = new DefaultBearerTokenResolver();
 
     private final RedisSessionValidationFilter redisSessionValidationFilter;
