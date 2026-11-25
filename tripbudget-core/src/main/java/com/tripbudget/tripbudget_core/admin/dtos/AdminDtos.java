@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 
 import java.time.Instant;
 import java.util.List;
+import com.tripbudget.tripbudget_core.auth.dtos.response.LoginSessionResponse;
 
 public final class AdminDtos {
     private AdminDtos() {}
@@ -26,12 +27,13 @@ public final class AdminDtos {
     public record PageResult<T>(
             List<T> items, int page, int size, long totalElements, int totalPages) {}
 
-    public record Session(
-            String id, String userId, Instant createdAt, Instant expiresAt, boolean current) {}
-
-    public record Sessions(User user, List<Session> items) {}
+    public record Sessions(User user, List<LoginSessionResponse> items, int page, int size,
+                           long totalElements, int totalPages, int activeCount, boolean currentSessionActive) {}
 
     public record Overview(long users, long activeUsers, long pendingUsers, long disabledUsers) {}
+    public record RecentLogin(String id, String userId, String name, String email, String clientType,
+                              String browser, String operatingSystem, String deviceType, String loginMethod,
+                              Instant signedInAt, String outcome) {}
 
     public record Audit(
             String id,

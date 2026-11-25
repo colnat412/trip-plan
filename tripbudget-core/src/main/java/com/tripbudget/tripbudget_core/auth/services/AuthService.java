@@ -60,6 +60,9 @@ public class AuthService {
                 throw new IllegalArgumentException("Invalid credentials");
             }
             return signIn(user);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().is5xxServerError()) throw exception;
+            throw unauthorized("Email or password is not valid");
         } catch (RuntimeException exception) {
             throw unauthorized("Email or password is not valid");
         }
@@ -76,6 +79,9 @@ public class AuthService {
             users.saveAndFlush(user);
             redis.delete(otpKey(email));
             return signIn(user);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().is5xxServerError()) throw exception;
+            throw unauthorized("Invalid OTP");
         } catch (RuntimeException exception) {
             throw unauthorized("Invalid OTP");
         }
@@ -105,6 +111,9 @@ public class AuthService {
             user.updateGoogleProfile(profile.picture());
             user = users.saveAndFlush(user);
             return signIn(user);
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().is5xxServerError()) throw exception;
+            throw unauthorized("Failed to login with Google");
         } catch (RuntimeException exception) {
             throw unauthorized("Failed to login with Google");
         }

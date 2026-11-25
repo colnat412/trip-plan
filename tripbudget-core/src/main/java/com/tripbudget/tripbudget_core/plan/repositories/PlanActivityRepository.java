@@ -39,7 +39,7 @@ public interface PlanActivityRepository extends JpaRepository<PlanActivityEntity
             FROM PlanActivityEntity activity
             WHERE activity.day.id = :dayId
               AND activity.isDel = false
-            ORDER BY activity.startTime ASC NULLS LAST, activity.orderIndex ASC,
+            ORDER BY activity.orderIndex ASC, activity.startTime ASC NULLS LAST,
                      activity.createdAt ASC, activity.id ASC
             """)
     List<PlanActivityEntity> findAllByDayIdSorted(@Param("dayId") Long dayId);
@@ -50,7 +50,7 @@ public interface PlanActivityRepository extends JpaRepository<PlanActivityEntity
                     FROM PlanActivityEntity activity
                     WHERE activity.day.id = :dayId
                       AND activity.isDel = false
-                    ORDER BY activity.startTime ASC NULLS LAST, activity.orderIndex ASC,
+                    ORDER BY activity.orderIndex ASC, activity.startTime ASC NULLS LAST,
                              activity.createdAt ASC, activity.id ASC
                     """,
             countQuery = """

@@ -2,6 +2,7 @@ package com.tripbudget.tripbudget_core.admin.controllers;
 
 import com.tripbudget.tripbudget_core.admin.dtos.AdminDtos.*;
 import com.tripbudget.tripbudget_core.admin.services.AdminService;
+import com.tripbudget.tripbudget_core.admin.services.AdminLoginHistoryService;
 import com.tripbudget.tripbudget_core.common.annotations.CurrentUser;
 import com.tripbudget.tripbudget_core.common.dtos.*;
 
@@ -17,6 +18,14 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AdminController {
     private final AdminService admin;
+    private final AdminLoginHistoryService loginHistory;
+
+    @GetMapping("/login-history")
+    public ResponseEntity<ApiResponse<PageResult<RecentLogin>>> loginHistory(
+            @CurrentUser CurrentUserDto user, @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "0") int page) {
+        return success(loginHistory.page(user.id(), q, page));
+    }
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<User>> me(@CurrentUser CurrentUserDto user) {
@@ -68,9 +77,10 @@ public class AdminController {
 
     @GetMapping("/users/{id}/sessions")
     public ResponseEntity<ApiResponse<Sessions>> sessions(
-            @CurrentUser CurrentUserDto user, @PathVariable String id) {
+            @CurrentUser CurrentUserDto user, @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         Long actorId = user.id();
-        return success(admin.sessions(actorId, user.sessionId(), id));
+        return success(admin.sessions(actorId, user.sessionId(), id, page, size));
     }
 
     @PostMapping("/users/{id}/sessions/revoke")

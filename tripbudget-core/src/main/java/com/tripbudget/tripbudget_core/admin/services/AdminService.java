@@ -70,22 +70,12 @@ public class AdminService {
         return userDto(target(id));
     }
 
-    public AdminDtos.Sessions sessions(Long actorId, String currentSession, String id) {
+    public AdminDtos.Sessions sessions(Long actorId, String currentSession, String id, int page, int size) {
         access.requireAdmin(actorId);
         var target = target(id);
-        var list =
-                authSessions.listUserSessions(target.getId()).stream()
-                        .map(
-                                session ->
-                                        new AdminDtos.Session(
-                                                session.id(),
-                                                hashids.encode(target.getId()),
-                                                session.createdAt(),
-                                                session.expiresAt(),
-                                                actorId.equals(target.getId())
-                                                        && session.id().equals(currentSession)))
-                        .toList();
-        return new AdminDtos.Sessions(userDto(target), list);
+        var result = authSessions.history(target.getId(), actorId.equals(target.getId()) ? currentSession : null, page, size);
+        return new AdminDtos.Sessions(userDto(target), result.items(), result.page(), result.size(),
+                result.totalElements(), result.totalPages(), result.activeCount(), result.currentSessionActive());
     }
 
     @Transactional

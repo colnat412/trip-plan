@@ -21,6 +21,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.tripbudget.tripbudget_core.auth.dtos.response.LoginSessionPage;
 
 @RestController
 @RequestMapping("/auth")
@@ -82,7 +83,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@CurrentUser CurrentUserDto user) {
         Long currentUserId = user.id();
         try {
-            sessions.revoke(currentUserId.toString(), user.sessionId());
+            sessions.logout(currentUserId, user.sessionId());
         } catch (RuntimeException exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid session");
         } finally {
@@ -97,6 +98,25 @@ public class AuthController {
     public ApiResponse<String> test(@CurrentUser CurrentUserDto user) {
         Long currentUserId = user.id();
         return ApiResponse.success(HttpStatus.OK, "Success", "GET TEST GUARD");
+    }
+
+    @GetMapping("/sessions")
+    public ResponseEntity<ApiResponse<LoginSessionPage>> mySessions(
+            @CurrentUser CurrentUserDto user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Long currentUserId = user.id();
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+                .body(ApiResponse.success(HttpStatus.OK, "Sessions", sessions.history(currentUserId, user.sessionId(), page, size)));
+    }
+
+    @DeleteMapping("/sessions/{sid}")
+    public ResponseEntity<ApiResponse<Void>> revokeMySession(@CurrentUser CurrentUserDto user, @PathVariable String sid) {
+        Long currentUserId = user.id();
+        if (!sessions.revokeOwned(currentUserId, sid)) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND");
+        notifications.revokeSession(currentUserId, sid);
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+                .body(ApiResponse.success(HttpStatus.OK, "Session revoked", null));
     }
 
     private ResponseEntity<ApiResponse<AuthResponse>> signedIn(LoginResult result) {
