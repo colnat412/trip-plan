@@ -210,6 +210,11 @@ public class AuthSessionService {
         return true;
     }
 
+    /** Account deletion erases SQL history in its own transaction; do not import legacy history. */
+    public void revokeForAccountDeletion(Long userId, String sessionId) {
+        if (ownedSession(userId, sessionId) != null) deleteSession(userId.toString(), sessionId);
+    }
+
     private SessionData ownedSession(Long userId, String sessionId) {
         String raw = redis.opsForValue().get(sessionKey(sessionId));
         if (raw == null) return null;

@@ -7,9 +7,11 @@ import com.tripbudget.tripbudget_core.user.dtos.request.AcceptPoliciesRequest;
 import com.tripbudget.tripbudget_core.user.dtos.request.UpdateAvatarRequest;
 import com.tripbudget.tripbudget_core.user.dtos.request.UpdateProfileRequest;
 import com.tripbudget.tripbudget_core.user.dtos.request.UpdatePasswordRequest;
+import com.tripbudget.tripbudget_core.user.dtos.request.DeleteAccountRequest;
 import com.tripbudget.tripbudget_core.user.dtos.response.UserProfileResponse;
 import com.tripbudget.tripbudget_core.user.services.UserAvatarService;
 import com.tripbudget.tripbudget_core.user.services.UserService;
+import com.tripbudget.tripbudget_core.user.services.AccountDeletionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,14 @@ import java.util.UUID;
 public class UserController {
     private final UserService users;
     private final UserAvatarService avatars;
+    private final AccountDeletionService deletion;
+
+    @DeleteMapping
+    public ApiResponse<Void> deleteAccount(@CurrentUser CurrentUserDto user,
+            @Valid @RequestBody DeleteAccountRequest request) {
+        deletion.delete(user.id(), request);
+        return ApiResponse.success(HttpStatus.OK, "Account deleted", null);
+    }
 
     @PatchMapping("/password")
     public ApiResponse<UserProfileResponse> updatePassword(
