@@ -1,6 +1,7 @@
 package com.tripbudget.tripbudget_core.settlement.repositories;
 
 import com.tripbudget.tripbudget_core.settlement.entities.SettlementEntity;
+import com.tripbudget.tripbudget_core.settlement.enums.SettlementStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.Lock;
@@ -16,6 +17,9 @@ import java.util.Optional;
 public interface SettlementRepository extends JpaRepository<SettlementEntity, Long> {
 
     List<SettlementEntity> findByTripIdAndIsDelFalseOrderBySettledAtDescCreatedAtDesc(Long tripId);
+
+    boolean existsByTripIdAndPayerIdAndPayeeIdAndCurrencyAndStatusAndIsDelFalse(
+            Long tripId, Long payerId, Long payeeId, String currency, SettlementStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<SettlementEntity> findByIdAndTripIdAndIsDelFalse(Long id, Long tripId);

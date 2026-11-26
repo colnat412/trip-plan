@@ -190,7 +190,7 @@ public class SettlementService {
 
     @Transactional
     public SettlementResponse createSettlement(Long currentUserId, Long tripId, CreateSettlementRequest req) {
-        TripEntity trip = getValidTrip(tripId);
+        TripEntity trip = getValidTripForUpdate(tripId);
         validateMembership(tripId, currentUserId);
 
         Long payerId = (req.payerId() != null && !req.payerId().isBlank())
@@ -216,6 +216,10 @@ public class SettlementService {
         String currency = (req.currency() != null && !req.currency().isBlank())
                 ? req.currency().trim().toUpperCase(Locale.ROOT)
                 : trip.getBaseCurrency();
+        if (settlementRepository.existsByTripIdAndPayerIdAndPayeeIdAndCurrencyAndStatusAndIsDelFalse(
+                tripId, payerId, payeeId, currency, SettlementStatus.PENDING)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A payment for this payer and payee is awaiting confirmation");
+        }
         LocalDateTime settledAt = req.settledAt() != null ? req.settledAt() : LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         PaymentMethod method = req.paymentMethod() != null ? req.paymentMethod() : PaymentMethod.CASH;
 
@@ -241,28 +245,13 @@ public class SettlementService {
 
     @Transactional
     public void deleteSettlement(Long currentUserId, Long tripId, Long settlementId) {
-        getValidTrip(tripId);
-        validateMembership(tripId, currentUserId);
-
-        SettlementEntity settlement = settlementRepository.findByIdAndTripIdAndIsDelFalse(settlementId, tripId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Settlement transaction not found"));
-
-        if (!currentUserId.equals(settlement.getCreatedBy())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the creator can request deletion");
-        }
-        if (settlement.getStatus() != SettlementStatus.CONFIRMED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only confirmed payments can request deletion");
-        }
-        settlement.requestDeletion();
-        notifications.emit(currentUserId, getValidTrip(tripId), NotificationType.SETTLEMENT_CONFIRMATION_REQUIRED,
-            List.of(settlement.confirmationUserId()), settlement.getAmount().toPlainString() + " " + settlement.getCurrency(),
-            settlement.getId(), UUID.randomUUID().toString(), null);
-        settlementRepository.save(settlement);
+        // Cancellation uses the same permissions, locks and notifications as a response.
+        respondToSettlement(currentUserId, tripId, settlementId, SettlementAction.CANCEL);
     }
 
     @Transactional
     public SettlementResponse respondToSettlement(Long currentUserId, Long tripId, Long settlementId, SettlementAction action) {
-        TripEntity trip = getValidTrip(tripId);
+        TripEntity trip = getValidTripForUpdate(tripId);
         validateMembership(tripId, currentUserId);
         SettlementEntity settlement = settlementRepository.findByIdAndTripIdAndIsDelFalse(settlementId, tripId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Settlement transaction not found"));
@@ -272,6 +261,9 @@ public class SettlementService {
         }
         if (settlement.getStatus() != SettlementStatus.PENDING && settlement.getStatus() != SettlementStatus.DELETE_PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Settlement is no longer awaiting confirmation");
+        }
+        if (settlement.getStatus() == SettlementStatus.DELETE_PENDING && action != SettlementAction.CANCEL) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Confirmed payments cannot be deleted; cancel the old deletion request");
         }
         settlement.respond(action);
         settlementRepository.save(settlement);
@@ -351,6 +343,16 @@ public class SettlementService {
         }
 
         return suggested;
+    }
+
+    private TripEntity getValidTripForUpdate(Long tripId) {
+        // Serialize the check and insert, including simultaneous requests from different clients.
+        TripEntity trip = tripRepository.findByIdForUpdate(tripId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found"));
+        if (trip.getStatus() == TripStatus.DELETED || trip.isDel()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Trip not found");
+        }
+        return trip;
     }
 
     private TripEntity getValidTrip(Long tripId) {

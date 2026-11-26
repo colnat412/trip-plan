@@ -76,7 +76,7 @@ public class SettlementController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
-                "Settlement deletion requested",
+                "Pending payment cancelled",
                 null
         ));
     }

@@ -59,7 +59,13 @@ public class AuthService {
                     || !"ACTIVE".equals(user.getStatus())) {
                 throw new IllegalArgumentException("Invalid credentials");
             }
-            return signIn(user);
+            var signed = signIn(user);
+            // A reset may commit while an in-flight login waits to create its history row.
+            if (!users.existsByIdAndPasswordAndStatus(user.getId(), user.getPassword(), "ACTIVE")) {
+                sessions.revoke(user.getId().toString(), signed.refreshToken().split("\\.", 2)[0]);
+                throw new IllegalArgumentException("Credentials changed");
+            }
+            return signed;
         } catch (ResponseStatusException exception) {
             if (exception.getStatusCode().is5xxServerError()) throw exception;
             throw unauthorized("Email or password is not valid");

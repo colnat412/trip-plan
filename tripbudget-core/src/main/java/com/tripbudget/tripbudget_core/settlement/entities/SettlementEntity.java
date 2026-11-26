@@ -36,24 +36,16 @@ public class SettlementEntity extends BaseEntity {
         return payeeId.equals(createdBy) ? payerId : payeeId;
     }
 
-    public void requestDeletion() {
-        if (status != SettlementStatus.CONFIRMED) {
-            throw new IllegalStateException("Only confirmed payments can request deletion");
-        }
-        status = SettlementStatus.DELETE_PENDING;
-    }
-
     public void respond(SettlementAction action) {
         if (status != SettlementStatus.PENDING && status != SettlementStatus.DELETE_PENDING) {
             throw new IllegalStateException("Settlement is no longer awaiting confirmation");
         }
         if (status == SettlementStatus.DELETE_PENDING) {
-            if (action == SettlementAction.APPROVE) {
-                status = SettlementStatus.DELETED;
-                markDeleted();
-            } else {
-                status = SettlementStatus.CONFIRMED;
+            // Legacy requests may only be withdrawn; confirmed payments remain in history.
+            if (action != SettlementAction.CANCEL) {
+                throw new IllegalStateException("Confirmed payments cannot be deleted");
             }
+            status = SettlementStatus.CONFIRMED;
         } else {
             status = switch (action) {
                 case APPROVE -> SettlementStatus.CONFIRMED;
