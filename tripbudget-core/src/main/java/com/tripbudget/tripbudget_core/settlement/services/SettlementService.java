@@ -11,6 +11,8 @@ import com.tripbudget.tripbudget_core.expense.enums.ExpenseStatus;
 import com.tripbudget.tripbudget_core.expense.repositories.ExpenseRepository;
 import com.tripbudget.tripbudget_core.settlement.dtos.request.CreateSettlementRequest;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.MemberBalanceResponse;
+import com.tripbudget.tripbudget_core.settlement.dtos.response.SettlementWorkspaceResponse;
+import com.tripbudget.tripbudget_core.trip.dtos.response.PageResponse;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.SettlementResponse;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.SuggestedSettlementResponse;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.TripSettlementSummaryResponse;
@@ -188,6 +190,43 @@ public class SettlementService {
         );
     }
 
+    /** Filter derived balances only after all expenses and confirmed payments have been accounted for. */
+    @Transactional(readOnly = true)
+    public SettlementWorkspaceResponse getSettlementWorkspace(Long actorId, Long tripId,
+            String memberStatus, int memberPage, String historyStatus, int historyPage, int suggestionPage) {
+        if (!Set.of("ALL", "OWED", "OWES", "SETTLED").contains(memberStatus)
+                || !Set.of("ALL", "PENDING", "CONFIRMED").contains(historyStatus)
+                || memberPage < 0 || memberPage > 5000 || historyPage < 0 || historyPage > 5000
+                || suggestionPage < 0 || suggestionPage > 5000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid settlement filters or page");
+        }
+        var summary = getSettlementSummary(actorId, tripId);
+        var members = summary.memberBalances().stream()
+                .filter(member -> memberStatus.equals("ALL") || member.status().equals(memberStatus))
+                .sorted(Comparator.comparing(MemberBalanceResponse::netBalance).reversed()
+                        .thenComparing(MemberBalanceResponse::userId))
+                .toList();
+        var history = summary.settlementHistory().stream()
+                .filter(item -> historyStatus.equals("ALL") || (historyStatus.equals("PENDING")
+                        ? item.status() == SettlementStatus.PENDING || item.status() == SettlementStatus.DELETE_PENDING
+                        : item.status() == SettlementStatus.CONFIRMED))
+                .sorted(Comparator.comparing(SettlementResponse::settledAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(SettlementResponse::createdAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(SettlementResponse::id, Comparator.reverseOrder()))
+                .toList();
+        return new SettlementWorkspaceResponse(summary, settlementPage(members, memberPage),
+                settlementPage(summary.suggestedSettlements(), suggestionPage), settlementPage(history, historyPage));
+    }
+
+    private <T> PageResponse<T> settlementPage(List<T> items, int requestedPage) {
+        final int size = 3;
+        int totalPages = (items.size() + size - 1) / size;
+        int page = Math.min(requestedPage, Math.max(0, totalPages - 1));
+        int from = page * size;
+        return new PageResponse<>(items.subList(from, Math.min(from + size, items.size())),
+                new PageResponse.Pagination(page, size, items.size(), totalPages, page + 1 < totalPages));
+    }
+
     @Transactional
     public SettlementResponse createSettlement(Long currentUserId, Long tripId, CreateSettlementRequest req) {
         TripEntity trip = getValidTripForUpdate(tripId);
@@ -301,8 +340,8 @@ public class SettlementService {
             }
         }
 
-        creditors.sort((a, b) -> b.amount.compareTo(a.amount));
-        debtors.sort((a, b) -> b.amount.compareTo(a.amount));
+        creditors.sort(Comparator.<BalanceEntry, BigDecimal>comparing(entry -> entry.amount).reversed().thenComparing(entry -> entry.userId));
+        debtors.sort(Comparator.<BalanceEntry, BigDecimal>comparing(entry -> entry.amount).reversed().thenComparing(entry -> entry.userId));
 
         List<SuggestedSettlementResponse> suggested = new ArrayList<>();
         int creditorIndex = 0;

@@ -43,6 +43,14 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class TripService {
     public TripFilterOptionsResponse getFilterOptions(Long currentUserId) {
+        return getFilterOptions(currentUserId, "");
+    }
+
+    public TripFilterOptionsResponse getFilterOptions(Long currentUserId, String destinationSearch) {
+        if (destinationSearch == null || destinationSearch.length() > 200) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid destination search");
+        }
+        String search = normalizeFilterSearch(destinationSearch);
         var options = tripRepository.findFilterOptions(currentUserId);
         var today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         List<String> destinations = options.stream().map(item -> item.getDestination())
@@ -53,7 +61,13 @@ public class TripService {
                 .filter(item -> item.getEndDate() != null && !item.getEndDate().isAfter(today))
                 .map(item -> item.getDestination()).filter(Objects::nonNull).map(String::trim)
                 .filter(value -> !value.isEmpty()).distinct().sorted().toList();
-        return new TripFilterOptionsResponse(destinations, currencies, visited);
+        return new TripFilterOptionsResponse(destinations.stream().filter(value -> normalizeFilterSearch(value).contains(search)).toList(), currencies, visited);
+    }
+
+    private static String normalizeFilterSearch(String value) {
+        return java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replace('đ', 'd').replace('Đ', 'd')
+                .toLowerCase(java.util.Locale.ROOT).trim();
     }
 
     private final TripRepository tripRepository;

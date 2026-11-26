@@ -36,10 +36,17 @@ public class TripMemberService {
 
     @Transactional(readOnly = true)
     public List<TripMemberResponse> getTripMembers(Long currentUserId, Long tripId) {
+        return getTripMembers(currentUserId, tripId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TripMemberResponse> getTripMembers(Long currentUserId, Long tripId, TripMemberStatus status) {
         getActiveTrip(tripId);
         getMemberOrThrow(tripId, currentUserId);
 
-        List<TripMemberEntity> members = tripMemberRepository.findByTrip_IdAndIsDelFalseOrderByCreatedAtAsc(tripId);
+        List<TripMemberEntity> members = status == null
+                ? tripMemberRepository.findByTrip_IdAndIsDelFalseOrderByCreatedAtAsc(tripId)
+                : tripMemberRepository.findByTrip_IdAndStatusAndIsDelFalseOrderByCreatedAtAsc(tripId, status);
         if (members.isEmpty()) {
             return List.of();
         }

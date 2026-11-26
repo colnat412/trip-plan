@@ -7,6 +7,7 @@ import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.settlement.dtos.request.CreateSettlementRequest;
 import com.tripbudget.tripbudget_core.settlement.dtos.request.RespondSettlementRequest;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.SettlementResponse;
+import com.tripbudget.tripbudget_core.settlement.dtos.response.SettlementWorkspaceResponse;
 import com.tripbudget.tripbudget_core.settlement.dtos.response.TripSettlementSummaryResponse;
 import com.tripbudget.tripbudget_core.settlement.services.SettlementService;
 import jakarta.validation.Valid;
@@ -40,6 +41,20 @@ public class SettlementController {
                 "Settlement summary retrieved successfully",
                 response
         ));
+    }
+
+    @GetMapping("/workspace")
+    public ResponseEntity<ApiResponse<SettlementWorkspaceResponse>> getSettlementWorkspace(
+            @PathVariable("tripId") String tripIdHash,
+            @RequestParam(defaultValue = "ALL") String memberStatus,
+            @RequestParam(defaultValue = "0") int memberPage,
+            @RequestParam(defaultValue = "ALL") String historyStatus,
+            @RequestParam(defaultValue = "0") int historyPage,
+            @RequestParam(defaultValue = "0") int suggestionPage,
+            @CurrentUser CurrentUserDto user) {
+        var result = settlementService.getSettlementWorkspace(user.id(), hashidsService.decode(tripIdHash),
+                memberStatus, memberPage, historyStatus, historyPage, suggestionPage);
+        return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Settlement workspace retrieved successfully", result));
     }
 
     @PostMapping

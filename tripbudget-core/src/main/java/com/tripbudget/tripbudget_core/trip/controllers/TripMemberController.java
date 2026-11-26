@@ -5,6 +5,7 @@ import com.tripbudget.tripbudget_core.common.dtos.ApiResponse;
 import com.tripbudget.tripbudget_core.common.dtos.CurrentUserDto;
 import com.tripbudget.tripbudget_core.common.services.HashidsService;
 import com.tripbudget.tripbudget_core.trip.dtos.request.InviteMemberRequest;
+import com.tripbudget.tripbudget_core.trip.enums.TripMemberStatus;
 import com.tripbudget.tripbudget_core.trip.dtos.request.UpdateMemberRoleRequest;
 import com.tripbudget.tripbudget_core.trip.dtos.response.TripMemberResponse;
 import com.tripbudget.tripbudget_core.trip.services.TripMemberService;
@@ -28,12 +29,13 @@ public class TripMemberController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<TripMemberResponse>>> getTripMembers(
+            @RequestParam(required = false) TripMemberStatus status,
             @PathVariable("tripId") String tripIdHash,
             @CurrentUser CurrentUserDto user
     ) {
         Long currentUserId = user.id();
         Long tripId = hashidsService.decode(tripIdHash);
-        List<TripMemberResponse> response = tripMemberService.getTripMembers(currentUserId, tripId);
+        List<TripMemberResponse> response = tripMemberService.getTripMembers(currentUserId, tripId, status);
         return ResponseEntity.ok(ApiResponse.success(
                 HttpStatus.OK,
                 "Trip members retrieved successfully",

@@ -11,6 +11,9 @@ import java.util.Optional;
 
 public interface TripMemberRepository extends JpaRepository<TripMemberEntity, Long> {
     @EntityGraph(attributePaths = "trip")
+    List<TripMemberEntity> findByTrip_IdAndStatusAndIsDelFalseOrderByCreatedAtAsc(Long tripId, TripMemberStatus status);
+
+    @EntityGraph(attributePaths = "trip")
     List<TripMemberEntity> findByUserIdAndTrip_IdIn(Long userId, Collection<Long> tripIds);
 
     List<TripMemberEntity> findAllByUserIdAndStatusAndIsDelFalse(Long userId, TripMemberStatus status);

@@ -30,10 +30,11 @@ public class TripController {
 
     @GetMapping("/my-trips/filter-options")
     public ResponseEntity<ApiResponse<TripFilterOptionsResponse>> getFilterOptions(
+            @RequestParam(defaultValue = "") String destinationSearch,
             @CurrentUser CurrentUserDto user) {
         Long currentUserId = user.id();
         return ResponseEntity.ok(ApiResponse.success(HttpStatus.OK, "Trip filter options retrieved",
-                tripService.getFilterOptions(currentUserId)));
+                tripService.getFilterOptions(currentUserId, destinationSearch)));
     }
 
     @PostMapping("/create")
