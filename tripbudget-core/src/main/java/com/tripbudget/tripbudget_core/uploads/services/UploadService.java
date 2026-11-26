@@ -50,6 +50,7 @@ public class UploadService {
             case PROFILE_AVATAR -> "tripbudget/profile-avatars";
             case TRIP_COVER -> "tripbudget/trip-covers";
             case ACTIVITY_IMAGE -> "tripbudget/activity-images";
+            case TRIP_NOTE_IMAGE -> "tripbudget/trip-note-images";
             case EXPENSE_RECEIPT -> "tripbudget/expense-receipts";
         };
         var result = cloudinary.upload(bytes, prefix + "/" + uploadId);
