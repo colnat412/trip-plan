@@ -19,7 +19,8 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** Provider data only. Call after authentication, request validation and request budgets. */
+/** Provider data only. Private lookups enforce authentication/request budgets before access;
+ * trusted published-template lookups enforce an anonymous provider-miss budget in the loader. */
 @Component
 @Slf4j
 public class MapsResponseCache {

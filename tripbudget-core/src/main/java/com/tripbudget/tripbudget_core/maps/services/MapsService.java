@@ -128,6 +128,20 @@ public class MapsService {
                 () -> calculateMatrix(origins, destinations, language, destinationContext));
     }
 
+    /** Internal lookup for an address read from a published template, never arbitrary public input.
+     * Anonymous cache misses share one bounded budget; authenticated map budgets stay separate.
+     */
+    public MapLocationResponse publishedTemplateLocation(String address) {
+        String query = validateText(address, 500);
+        return responseCache.location(query, "vi", "vietmap", () -> {
+            mapsBudget.consume(null, 0);
+            MapCoordinatesResponse coordinates = parseCoordinates(query);
+            if (coordinates != null) return new MapLocationResultResponse(new MapLocationResponse(coordinates, "vietmap"));
+            requireVietmap();
+            return new MapLocationResultResponse(resolveLocation(query));
+        }).location();
+    }
+
     private MapLocationResponse findLocation(String address, String language) {
         return responseCache.location(address, language, "vietmap",
                 () -> new MapLocationResultResponse(resolveLocation(address))).location();

@@ -80,6 +80,41 @@ public class PlanTemplateSummaryRepository {
                     row.getString("cover_url")
             );
 
+    // One overview result per published itinerary. Stops are queried only after selection.
+    private static final String MAP_FILTERS = """
+        FROM trip_core.plan_templates template
+        JOIN trip_core.trips source_trip ON source_trip.id = template.source_trip_id
+        WHERE template.is_del = FALSE AND template.status = 'PUBLISHED'
+          AND source_trip.is_del = FALSE AND source_trip.status <> 'DELETED'
+          AND (:category = '' OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements(template.snapshot->'days') AS day
+            CROSS JOIN LATERAL jsonb_array_elements(day->'activities') AS activity
+            WHERE CASE activity->>'category'
+                WHEN 'FOOD_BEVERAGE' THEN 'FOOD' WHEN 'ACCOMMODATION' THEN 'STAY'
+                WHEN 'VISIT' THEN 'SIGHT' WHEN 'SIGHTSEEING' THEN 'SIGHT' ELSE 'OTHER' END = :category
+          ))
+          AND (:search IS NULL OR lower(template.title) LIKE :search ESCAPE '!'
+               OR lower(template.destination) LIKE :search ESCAPE '!'
+               OR EXISTS (SELECT 1 FROM jsonb_array_elements(template.snapshot->'days') AS day
+                 CROSS JOIN LATERAL jsonb_array_elements(day->'activities') AS activity
+                 WHERE lower(activity->>'title') LIKE :search ESCAPE '!'
+                    OR lower(activity->>'location') LIKE :search ESCAPE '!'))
+        """;
+
+    public Page<PlanTemplateMapSource> mapTemplates(String search, String category, org.springframework.data.domain.Pageable page) {
+        var parameters = new MapSqlParameterSource()
+            .addValue("search", searchPattern(search.toLowerCase(java.util.Locale.ROOT)), Types.VARCHAR)
+            .addValue("category", category).addValue("limit", page.getPageSize()).addValue("offset", page.getOffset());
+        Long total = jdbcTemplate.queryForObject("SELECT count(*) " + MAP_FILTERS, parameters, Long.class);
+        var items = jdbcTemplate.query("""
+            SELECT template.id, template.title, template.destination, template.cover_url, template.duration_days,
+                (SELECT count(*) FROM trip_core.plan_template_saves saved WHERE saved.template_id = template.id) AS like_count
+            """ + MAP_FILTERS + " ORDER BY template.published_at DESC, template.id DESC LIMIT :limit OFFSET :offset", parameters,
+            (row, index) -> new PlanTemplateMapSource(row.getLong("id"), row.getString("title"), row.getString("destination"),
+                row.getString("cover_url"), row.getInt("duration_days"), row.getLong("like_count")));
+        return new PageImpl<>(items, page, total == null ? 0 : total);
+    }
+
     public Page<PlanTemplateSummary> search(PlanTemplateSearchCriteria criteria) {
         MapSqlParameterSource parameters = searchParameters(criteria);
         String countQuery = "SELECT COUNT(*) " + FROM_TEMPLATES + SEARCH_FILTERS;

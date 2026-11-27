@@ -71,7 +71,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_ENDPOINTS.toArray(String[]::new)).permitAll()
                         .requestMatchers(HttpMethod.GET, "/ai/health", "/ai/test").permitAll()
                         .requestMatchers("/test/**", "/api/test/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/public/trips/*", "/public/plan-templates", "/public/plan-templates/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/public/trips/*", "/public/plan-templates", "/public/plan-templates/*", "/public/plan-templates/*/map").permitAll()
                         .anyRequest().authenticated()
                 )
                 // Regis to verify JWT token to header.payload.signature
